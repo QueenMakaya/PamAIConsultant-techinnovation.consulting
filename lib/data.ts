@@ -37,7 +37,7 @@ export interface Testimonial {
 
 export const personalInfo = {
   name: "Pamela Alfred",
-  email: "contact@techinovation.consulting",
+  email: "pam@techinnovation.consulting",
   phone: "+1 438 455 4448",
   linkedin: "https://www.linkedin.com/in/alfredpamela/",
   github: "https://github.com/pamelaalfred",

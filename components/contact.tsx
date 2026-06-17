@@ -25,7 +25,7 @@ export function Contact() {
     const email = formData.get("email")
     const message = formData.get("message")
 
-    const mailtoLink = `mailto:contact@techinovation.consulting?subject=Contact from ${name}&body=${encodeURIComponent(
+    const mailtoLink = `mailto:pam@techinnovation.consulting?subject=Contact from ${name}&body=${encodeURIComponent(
       `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`,
     )}`
 
@@ -103,7 +103,7 @@ export function Contact() {
               <h3 className="text-xl font-bold font-display mb-6">{t.contact.or}</h3>
               <div className="space-y-4">
                 <a
-                  href="mailto:contact@techinovation.consulting"
+                  href="mailto:pam@techinnovation.consulting"
                   className="flex items-center gap-4 p-4 rounded-lg hover:bg-muted/50 transition-colors group"
                 >
                   <div className="p-3 bg-primary/10 rounded-lg group-hover:bg-primary/20 transition-colors">
@@ -111,7 +111,7 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="font-medium">Email</p>
-                    <p className="text-sm text-muted-foreground">contact@techinovation.consulting</p>
+                    <p className="text-sm text-muted-foreground">pam@techinnovation.consulting</p>
                   </div>
                 </a>
 

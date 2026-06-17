@@ -17,51 +17,55 @@ interface Project {
 const projects: Project[] = [
   {
     title: {
-      en: "AI-Powered Customer Service Automation",
-      fr: "Automatisation du Service Client par IA",
+      en: "AVA — AI Brand Assistant",
+      fr: "AVA — Assistant de Marque IA",
     },
     description: {
-      en: "Developed an intelligent chatbot using NLP and generative AI to handle customer inquiries, reducing response time by 70% and improving customer satisfaction.",
-      fr: "Développement d'un chatbot intelligent utilisant le NLP et l'IA générative pour gérer les demandes clients, réduisant le temps de réponse de 70% et améliorant la satisfaction client.",
+      en: "An AI virtual assistant that learns a brand's story, products, and voice, then answers customers 24/7 — on the website, at pop-up booths, and in the link in bio.",
+      fr: "Un assistant virtuel IA qui apprend l'histoire, les produits et la voix d'une marque, puis répond aux clients 24/7 — sur le site web, dans les stands éphémères et dans le lien en bio.",
     },
-    tags: ["NLP", "Generative AI", "Python", "n8n"],
-    image: "/ai-chatbot-dashboard.png",
+    tags: ["AI Assistant", "SaaS", "Product Design"],
+    link: "https://ava.techinnovation.consulting/",
+    image: "/projects/ava-ai-assistant.png",
   },
   {
     title: {
-      en: "Business Process Automation Platform",
-      fr: "Plateforme d'Automatisation des Processus Métier",
+      en: "Studio I AM Beauté — Content Repurposing",
+      fr: "Studio I AM Beauté — Réutilisation de Contenu",
     },
     description: {
-      en: "Built a comprehensive automation platform using n8n to streamline operations for a nonprofit, automating data collection, reporting, and communication workflows.",
-      fr: "Construction d'une plateforme d'automatisation complète avec n8n pour rationaliser les opérations d'un OBNL, automatisant la collecte de données, les rapports et les flux de communication.",
+      en: "One 52-second video turned into 14+ pieces of content — Reels, carousels, stories, and web assets — in a dark editorial brand language.",
+      fr: "Une vidéo de 52 secondes transformée en plus de 14 contenus — Reels, carrousels, stories et éléments web — dans un langage de marque éditorial sombre.",
     },
-    tags: ["n8n", "Automation", "API Integration", "No-Code"],
-    image: "/workflow-automation-dashboard.png",
+    tags: ["Content Strategy", "Social Media", "Web Design"],
+    link: "https://iam-demo-zeta.vercel.app/",
+    image: "/projects/iam-beaute-content.png",
   },
   {
     title: {
-      en: "Digital Transformation Strategy for SME",
-      fr: "Stratégie de Transformation Numérique pour PME",
+      en: "Black Wealth Crypto",
+      fr: "Black Wealth Crypto",
     },
     description: {
-      en: "Led a complete digital transformation initiative for a manufacturing company, implementing AI-driven inventory management and predictive maintenance systems.",
-      fr: "Direction d'une initiative complète de transformation numérique pour une entreprise manufacturière, implémentant la gestion des stocks par IA et des systèmes de maintenance prédictive.",
+      en: "A bilingual (FR/EN) crypto-education platform built on three pillars — Education, Experts, News — with a weekly newsletter.",
+      fr: "Une plateforme bilingue (FR/EN) d'éducation crypto bâtie sur trois piliers — Éducation, Experts, Actualités — avec une newsletter hebdomadaire.",
     },
-    tags: ["Strategy", "AI", "IoT", "Change Management"],
-    image: "/digital-transformation-business-analytics.jpg",
+    tags: ["Web Platform", "Content Strategy", "Bilingual"],
+    link: "https://blackwealthcrypto.com",
+    image: "/projects/black-wealth-crypto.png",
   },
   {
     title: {
-      en: "Entrepreneurship Training Program",
-      fr: "Programme de Formation en Entrepreneuriat",
+      en: "Les Mounas — Afro-Inspired Learning",
+      fr: "Les Mounas — Apprentissage Afro-Inspiré",
     },
     description: {
-      en: "Designed and delivered a comprehensive training program on AI adoption for entrepreneurs, helping 50+ startups integrate AI into their business models.",
-      fr: "Conception et livraison d'un programme de formation complet sur l'adoption de l'IA pour entrepreneurs, aidant plus de 50 startups à intégrer l'IA dans leurs modèles d'affaires.",
+      en: "An afro-inspired homeschool hub for ages 3–6, paired with a boutique of cultural plush toys.",
+      fr: "Un centre d'apprentissage à domicile afro-inspiré pour les 3 à 6 ans, accompagné d'une boutique de peluches culturelles.",
     },
-    tags: ["Training", "AI Strategy", "Coaching", "Innovation"],
-    image: "/business-training-workshop-presentation.jpg",
+    tags: ["EdTech", "E-commerce", "Brand"],
+    link: "https://lesmounas.school/",
+    image: "/projects/les-mounas-learning.png",
   },
 ]
 
@@ -115,12 +119,15 @@ export function Projects() {
                     ))}
                   </div>
                   <Button
+                    asChild
                     variant="outline"
                     size="sm"
                     className={`gap-2 mt-4 w-full bg-transparent border-2 ${color.border} hover:${color.accent} group/btn`}
                   >
-                    {language === "en" ? "Learn More" : "En savoir plus"}
-                    <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                    <a href={project.link} target="_blank" rel="noopener noreferrer">
+                      {language === "en" ? "Learn More" : "En savoir plus"}
+                      <ArrowRight className="h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                    </a>
                   </Button>
                 </div>
               </Card>

@@ -21,6 +21,7 @@ export const metadata: Metadata = {
     description: "Expert in strategic innovation, AI integration, and digital transformation.",
     type: "website",
   },
+    generator: 'v0.app'
 }
 
 export default function RootLayout({

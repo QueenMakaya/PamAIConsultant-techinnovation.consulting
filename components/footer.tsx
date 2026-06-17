@@ -68,7 +68,7 @@ export function Footer() {
 
           <div className="flex items-center gap-4">
             <a
-              href="mailto:contact@techinovation.consulting"
+              href="mailto:pam@techinnovation.consulting"
               className="p-3 bg-background rounded-lg hover:bg-primary/10 transition-colors"
               aria-label="Email"
             >

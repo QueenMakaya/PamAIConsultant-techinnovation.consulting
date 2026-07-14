@@ -9,7 +9,14 @@ export async function GET(request: NextRequest) {
   const probe = request.nextUrl.searchParams.get("probe") ?? ""
   const v = process.env.VALIDATION_TOKEN
 
+  // Names only (never values) of any token/airtable/validation-related keys —
+  // reveals scope issues or key-name typos without exposing secrets.
+  const allKeys = Object.keys(process.env)
+  const relevantKeys = allKeys.filter((k) => /token|airtable|validation/i.test(k)).sort()
+
   return NextResponse.json({
+    relevantKeys,
+    totalEnvKeys: allKeys.length,
     validationToken: {
       present: typeof v === "string" && v.length > 0,
       length: typeof v === "string" ? v.length : 0,

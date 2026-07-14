@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
   }
 
   const airtableToken = process.env.AIRTABLE_TOKEN
-  const base = process.env.AIRTABLE_BASE
-  const table = process.env.AIRTABLE_TABLE
+  const base = process.env.AIRTABLE_BASE || "appewRVgrp7nb51ky"
+  const table = process.env.AIRTABLE_TABLE || "tbldd33ltZe9ran3d"
 
   if (!airtableToken || !base || !table) {
     return NextResponse.json({ ok: false, error: "misconfigured" }, { status: 500 })

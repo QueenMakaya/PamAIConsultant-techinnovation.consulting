@@ -138,13 +138,15 @@ export async function GET(request: NextRequest) {
   }
 
   const airtableToken = process.env.AIRTABLE_TOKEN
-  const base = process.env.AIRTABLE_BASE
-  const table = process.env.AIRTABLE_TABLE
-  const view = process.env.AIRTABLE_VIEW
+  // Base/table IDs are not secret; default to Anny's K "Content Calendar" so
+  // only the secrets (AIRTABLE_TOKEN + VALIDATION_TOKEN) must be configured.
+  const base = process.env.AIRTABLE_BASE || "appewRVgrp7nb51ky"
+  const table = process.env.AIRTABLE_TABLE || "tbldd33ltZe9ran3d"
+  const view = process.env.AIRTABLE_VIEW // optional — omit to read the whole table
 
-  if (!airtableToken || !base || !table || !view) {
+  if (!airtableToken || !base || !table) {
     return NextResponse.json(
-      { error: "misconfigured", detail: "Variables Airtable manquantes côté serveur." },
+      { error: "misconfigured", detail: "AIRTABLE_TOKEN manquant côté serveur." },
       { status: 500 },
     )
   }
@@ -155,7 +157,7 @@ export async function GET(request: NextRequest) {
 
     do {
       const url = new URL(`https://api.airtable.com/v0/${base}/${encodeURIComponent(table)}`)
-      url.searchParams.set("view", view)
+      if (view) url.searchParams.set("view", view)
       url.searchParams.set("returnFieldsByFieldId", "true")
       if (offset) url.searchParams.set("offset", offset)
 

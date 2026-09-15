@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { resolveClient } from "@/lib/validation-clients"
+import { ADJUST, APPROVED, resolveClient } from "@/lib/validation-clients"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-const ALLOWED_DECISIONS = new Set(["Approuvé", "À ajuster"])
+const ALLOWED_DECISIONS = new Set<string>([APPROVED, ADJUST])
 
 type ApproveBody = {
   token?: unknown
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
           {
             id: recordId,
             fields: {
-              [client.fields.approval]: decision,
+              [client.fields.approval]: client.approvalLabels[decision as typeof APPROVED | typeof ADJUST],
               [client.fields.comment]: typeof comment === "string" ? comment : "",
             },
           },

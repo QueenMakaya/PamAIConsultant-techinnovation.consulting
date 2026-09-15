@@ -15,15 +15,27 @@ export type ClientFields = {
   comment: string
 }
 
+// The page and /api/approve speak the canonical labels below; clients whose
+// single-select options are spelled differently map them here. Writes use
+// typecast:true, so a mismatch would silently create a new option.
+export const APPROVED = "Approuvé"
+export const ADJUST = "À ajuster"
+
+export type ApprovalLabels = Record<typeof APPROVED | typeof ADJUST, string>
+
+const DEFAULT_LABELS: ApprovalLabels = { [APPROVED]: APPROVED, [ADJUST]: ADJUST }
+
 export type ValidationClient = {
   slug: string
   base: string
   table: string
   view?: string
   fields: ClientFields
+  approvalLabels: ApprovalLabels
 }
 
-type ClientDef = Omit<ValidationClient, "base" | "table" | "view"> & {
+type ClientDef = Omit<ValidationClient, "base" | "table" | "view" | "approvalLabels"> & {
+  approvalLabels?: ApprovalLabels
   tokenEnv: string
   base: () => string
   table: () => string
@@ -71,7 +83,34 @@ const CLIENTS: ClientDef[] = [
       comment: "fld0Ygzhitby2hLEp", // Commentaires CHAFRIC
     },
   },
+  {
+    // OK Pneus Terrebonne "Calendrier de contenu" — approval options carry emojis.
+    slug: "okpneus",
+    tokenEnv: "OKPNEUS_VALIDATION_TOKEN",
+    base: () => "appzNmBQeCXPUVnff",
+    table: () => "tblobreF74oLW96Es",
+    approvalLabels: { [APPROVED]: "✅ Approuvé", [ADJUST]: "✏️ À ajuster" },
+    fields: {
+      title: "fldm3Pz6HBqTPoA0s", // Titre / Sujet
+      date: "fldzKXoHET0Qdu6Rj", // Date de publication
+      channel: "fldbllhvVLBiQumXx", // Canal
+      format: "fldSaIWkabppLwrdI", // Format
+      caption: "flddiucu0Iyikw9uV", // Légende / Contenu
+      hashtags: null,
+      link: "fldibe9cXZqhr8Uy4", // Lien
+      visuals: "fldYtV4KpZ8IPB90a", // Visuel
+      approval: "fldrnEufjMAeefTtd", // Approbation Sam
+      comment: "fldvSt3oifN4jo9Xq", // Commentaire de Sam
+    },
+  },
 ]
+
+// Airtable option label → canonical label the page understands.
+export function toCanonicalApproval(client: ValidationClient, raw: string): string {
+  if (raw === client.approvalLabels[APPROVED]) return APPROVED
+  if (raw === client.approvalLabels[ADJUST]) return ADJUST
+  return raw
+}
 
 export function resolveClient(token: unknown): ValidationClient | null {
   if (typeof token !== "string" || token.length === 0) return null
@@ -84,6 +123,7 @@ export function resolveClient(token: unknown): ValidationClient | null {
         table: client.table(),
         view: client.view?.(),
         fields: client.fields,
+        approvalLabels: client.approvalLabels ?? DEFAULT_LABELS,
       }
     }
   }

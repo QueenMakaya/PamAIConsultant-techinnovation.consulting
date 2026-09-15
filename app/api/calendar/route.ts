@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { resolveClient, type ClientFields } from "@/lib/validation-clients"
+import { resolveClient, toCanonicalApproval, type ValidationClient } from "@/lib/validation-clients"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -71,7 +71,8 @@ function beatNumber(title: string): { key: string; number: number } {
   return { key: match[1], number: Number.parseInt(match[1], 10) }
 }
 
-function mapRecord(record: AirtableRecord, FIELD: ClientFields): Post {
+function mapRecord(record: AirtableRecord, client: ValidationClient): Post {
+  const FIELD = client.fields
   const f = record.fields
   return {
     id: record.id,
@@ -83,7 +84,7 @@ function mapRecord(record: AirtableRecord, FIELD: ClientFields): Post {
     hashtags: FIELD.hashtags ? asString(f[FIELD.hashtags]) : "",
     link: asString(f[FIELD.link]),
     visual: firstThumbnail(f[FIELD.visuals]),
-    approval: asString(f[FIELD.approval]),
+    approval: toCanonicalApproval(client, asString(f[FIELD.approval])),
     comment: asString(f[FIELD.comment]),
   }
 }
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
       offset = page.offset
     } while (offset)
 
-    const posts = records.map((record) => mapRecord(record, client.fields))
+    const posts = records.map((record) => mapRecord(record, client))
     const beats = groupIntoBeats(posts)
 
     return NextResponse.json({ beats })

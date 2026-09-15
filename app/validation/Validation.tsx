@@ -392,7 +392,7 @@ export default function Validation() {
                 className="text-xl text-[#003219]"
                 style={{ fontFamily: "var(--font-fraunces), serif" }}
               >
-                {beat.title.replace(/^\s*0*\d+\s*[—–-]\s*/, "") || beat.title}
+                {beat.title.replace(/^\s*0*\d+\s*[—–·-]\s*/, "") || beat.title}
               </h2>
             </div>
 

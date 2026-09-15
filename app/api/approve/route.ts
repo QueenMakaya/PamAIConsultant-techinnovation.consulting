@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { resolveClient } from "@/lib/validation-clients"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
-
-const APPROVAL_FIELD = "fldZ8KXT6KpJjZhaU"
-const COMMENT_FIELD = "fldOwvLIfHA3zM1XV"
 
 const ALLOWED_DECISIONS = new Set(["Approuvé", "À ajuster"])
 
@@ -25,7 +23,8 @@ export async function POST(request: NextRequest) {
 
   const { token, recordId, decision, comment } = body
 
-  if (token !== process.env.VALIDATION_TOKEN) {
+  const client = resolveClient(token)
+  if (!client) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
   }
 
@@ -38,8 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   const airtableToken = process.env.AIRTABLE_TOKEN
-  const base = process.env.AIRTABLE_BASE || "appewRVgrp7nb51ky"
-  const table = process.env.AIRTABLE_TABLE || "tbldd33ltZe9ran3d"
+  const { base, table } = client
 
   if (!airtableToken || !base || !table) {
     return NextResponse.json({ ok: false, error: "misconfigured" }, { status: 500 })
@@ -58,8 +56,8 @@ export async function POST(request: NextRequest) {
           {
             id: recordId,
             fields: {
-              [APPROVAL_FIELD]: decision,
-              [COMMENT_FIELD]: typeof comment === "string" ? comment : "",
+              [client.fields.approval]: decision,
+              [client.fields.comment]: typeof comment === "string" ? comment : "",
             },
           },
         ],

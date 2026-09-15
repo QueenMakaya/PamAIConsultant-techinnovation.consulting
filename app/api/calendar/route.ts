@@ -1,21 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { resolveClient, type ClientFields } from "@/lib/validation-clients"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
-
-// Airtable field IDs (records are fetched with returnFieldsByFieldId=true).
-const FIELD = {
-  title: "fldRPvHjX9ttg7Zuq",
-  date: "flds3Pqa5NCw0sxUA",
-  channel: "fld401OFcLHdxvoGL",
-  format: "fldAJC3vX6IfkEv0X",
-  caption: "fldXBa4oEgLFoTmX9",
-  hashtags: "fldgGjCNn4jUT0jN5",
-  link: "fldVHYG9tfW5SOGD4",
-  visuals: "fld4P6xUg7dUrwEi8",
-  approval: "fldZ8KXT6KpJjZhaU",
-  comment: "fldOwvLIfHA3zM1XV",
-} as const
 
 type Attachment = {
   url?: string
@@ -76,14 +63,15 @@ function firstThumbnail(value: unknown): string | null {
   )
 }
 
-// Extract the leading numeric prefix from a title like "01 — Lancement".
+// Extract the leading numeric prefix from a title like "01 — Lancement" or
+// "01 - Lancement" (em dash, en dash or plain hyphen).
 function beatNumber(title: string): { key: string; number: number } {
   const match = title.match(/^\s*0*(\d+)/)
   if (!match) return { key: "—", number: Number.MAX_SAFE_INTEGER }
   return { key: match[1], number: Number.parseInt(match[1], 10) }
 }
 
-function mapRecord(record: AirtableRecord): Post {
+function mapRecord(record: AirtableRecord, FIELD: ClientFields): Post {
   const f = record.fields
   return {
     id: record.id,
@@ -92,7 +80,7 @@ function mapRecord(record: AirtableRecord): Post {
     channel: asString(f[FIELD.channel]),
     format: asString(f[FIELD.format]),
     caption: asString(f[FIELD.caption]),
-    hashtags: asString(f[FIELD.hashtags]),
+    hashtags: FIELD.hashtags ? asString(f[FIELD.hashtags]) : "",
     link: asString(f[FIELD.link]),
     visual: firstThumbnail(f[FIELD.visuals]),
     approval: asString(f[FIELD.approval]),
@@ -132,17 +120,13 @@ function groupIntoBeats(posts: Post[]): Beat[] {
 }
 
 export async function GET(request: NextRequest) {
-  const token = request.nextUrl.searchParams.get("token")
-  if (token !== process.env.VALIDATION_TOKEN) {
+  const client = resolveClient(request.nextUrl.searchParams.get("token"))
+  if (!client) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
 
   const airtableToken = process.env.AIRTABLE_TOKEN
-  // Base/table IDs are not secret; default to Anny's K "Content Calendar" so
-  // only the secrets (AIRTABLE_TOKEN + VALIDATION_TOKEN) must be configured.
-  const base = process.env.AIRTABLE_BASE || "appewRVgrp7nb51ky"
-  const table = process.env.AIRTABLE_TABLE || "tbldd33ltZe9ran3d"
-  const view = process.env.AIRTABLE_VIEW // optional — omit to read the whole table
+  const { base, table, view } = client
 
   if (!airtableToken || !base || !table) {
     return NextResponse.json(
@@ -179,7 +163,7 @@ export async function GET(request: NextRequest) {
       offset = page.offset
     } while (offset)
 
-    const posts = records.map(mapRecord)
+    const posts = records.map((record) => mapRecord(record, client.fields))
     const beats = groupIntoBeats(posts)
 
     return NextResponse.json({ beats })

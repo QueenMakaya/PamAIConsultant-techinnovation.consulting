@@ -1,9 +1,20 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import { useSearchParams } from "next/navigation"
 
 // ---- Types (mirror the /api/calendar response) ------------------------------
+
+type Visual = {
+  id: string
+  kind: "image" | "video"
+  url: string
+  preview: string | null
+  filename: string
+  width: number | null
+  height: number | null
+}
 
 type Post = {
   id: string
@@ -14,7 +25,7 @@ type Post = {
   caption: string
   hashtags: string
   link: string
-  visual: string | null
+  visuals: Visual[]
   approval: string
   comment: string
 }
@@ -476,15 +487,7 @@ function PostCard({
 
   return (
     <article className="overflow-hidden rounded-2xl border border-[#003219]/10 bg-white/70 shadow-sm">
-      {post.visual ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={post.visual}
-          alt={`Visuel — ${post.title}`}
-          className="max-h-80 w-full object-cover"
-          loading="lazy"
-        />
-      ) : null}
+      <VisualGallery visuals={post.visuals} title={post.title} />
 
       <div className="p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -501,9 +504,15 @@ function PostCard({
               {post.format}
             </span>
           ) : null}
-          {post.date ? (
-            <span className="ml-auto text-xs text-[#003219]/60">{formatDate(post.date)}</span>
-          ) : null}
+          <span
+            className={
+              post.date
+                ? "ml-auto text-xs text-[#003219]/60"
+                : "ml-auto text-xs italic text-[#003219]/40"
+            }
+          >
+            {post.date ? formatDate(post.date) : "Date à confirmer"}
+          </span>
         </div>
 
         {post.caption ? (
@@ -598,5 +607,239 @@ function PostCard({
         </div>
       </div>
     </article>
+  )
+}
+
+// ---- Visuals -----------------------------------------------------------------
+
+// The card preview: every attachment of the post, in filename order, shown
+// whole (never cropped). Images open full size in the lightbox; videos play
+// inline.
+function VisualGallery({ visuals, title }: { visuals: Visual[]; title: string }) {
+  const [index, setIndex] = useState(0)
+  const [lightboxAt, setLightboxAt] = useState<number | null>(null)
+
+  if (visuals.length === 0) {
+    return (
+      <div className="flex items-center justify-center border-b border-dashed border-[#003219]/15 bg-[#003219]/[0.03] px-4 py-7 text-center text-sm text-[#003219]/45">
+        Visuel à venir 🌿
+      </div>
+    )
+  }
+
+  const safeIndex = Math.min(index, visuals.length - 1)
+  const current = visuals[safeIndex]
+  const many = visuals.length > 1
+  const label = `Visuel${many ? ` ${safeIndex + 1} sur ${visuals.length}` : ""} — ${title}`
+
+  return (
+    <div className="border-b border-[#003219]/10 bg-[#003219]/[0.04]">
+      <div className="relative">
+        {current.kind === "video" ? (
+          <video
+            key={current.id}
+            src={current.url}
+            poster={current.preview ?? undefined}
+            controls
+            playsInline
+            preload="metadata"
+            className="mx-auto block max-h-[28rem] w-full bg-black object-contain"
+          >
+            <a href={current.url}>Ouvrir la vidéo</a>
+          </video>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setLightboxAt(safeIndex)}
+            className="group block w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#B5822B]"
+            aria-label={`Agrandir : ${label}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={current.preview ?? current.url}
+              alt={label}
+              className="mx-auto block max-h-[28rem] w-auto max-w-full object-contain"
+              loading="lazy"
+            />
+            <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-[#003219]/85 px-2.5 py-1 text-xs font-medium text-[#FAF6EE] opacity-90">
+              Voir en grand
+            </span>
+          </button>
+        )}
+
+        {many ? (
+          <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-[#003219]/85 px-2.5 py-1 text-xs font-medium text-[#FAF6EE]">
+            {safeIndex + 1}/{visuals.length}
+          </span>
+        ) : null}
+      </div>
+
+      {many ? (
+        <div className="flex gap-2 overflow-x-auto px-3 py-2">
+          {visuals.map((visual, i) => (
+            <button
+              key={visual.id}
+              type="button"
+              onClick={() => setIndex(i)}
+              aria-label={`Voir le visuel ${i + 1} sur ${visuals.length}`}
+              aria-current={i === safeIndex}
+              className={[
+                "h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-[#003219]/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B]",
+                i === safeIndex ? "border-[#B5822B]" : "border-transparent opacity-70",
+              ].join(" ")}
+            >
+              <span className="relative block h-full w-full">
+                {visual.preview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={visual.preview}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : null}
+                {visual.kind === "video" ? (
+                  <span className="absolute inset-0 flex items-center justify-center bg-[#003219]/35 text-sm text-[#FAF6EE]">
+                    ▶
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {lightboxAt !== null ? (
+        <Lightbox
+          visuals={visuals}
+          startAt={lightboxAt}
+          title={title}
+          onClose={() => setLightboxAt(null)}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+// Full-screen viewer: the original file, at its real size, with arrows when the
+// post carries several slides.
+function Lightbox({
+  visuals,
+  startAt,
+  title,
+  onClose,
+}: {
+  visuals: Visual[]
+  startAt: number
+  title: string
+  onClose: () => void
+}) {
+  const [index, setIndex] = useState(startAt)
+  const many = visuals.length > 1
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose()
+      if (event.key === "ArrowRight") setIndex((i) => (i + 1) % visuals.length)
+      if (event.key === "ArrowLeft") setIndex((i) => (i - 1 + visuals.length) % visuals.length)
+    }
+    document.addEventListener("keydown", onKey)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [onClose, visuals.length])
+
+  if (typeof document === "undefined") return null
+
+  const current = visuals[index]
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Visuel — ${title}`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#00150c] p-3 sm:p-6"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Fermer"
+        className="absolute right-3 top-3 z-10 rounded-full bg-[#FAF6EE]/15 px-3 py-2 text-sm font-medium text-[#FAF6EE] hover:bg-[#FAF6EE]/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B]"
+      >
+        Fermer ✕
+      </button>
+
+      {many ? (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIndex((i) => (i - 1 + visuals.length) % visuals.length)
+            }}
+            aria-label="Visuel précédent"
+            className="absolute left-2 z-10 rounded-full bg-[#FAF6EE]/15 px-3 py-4 text-lg text-[#FAF6EE] hover:bg-[#FAF6EE]/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B] sm:left-4"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIndex((i) => (i + 1) % visuals.length)
+            }}
+            aria-label="Visuel suivant"
+            className="absolute right-2 z-10 rounded-full bg-[#FAF6EE]/15 px-3 py-4 text-lg text-[#FAF6EE] hover:bg-[#FAF6EE]/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B] sm:right-4"
+          >
+            ›
+          </button>
+        </>
+      ) : null}
+
+      <div
+        className="flex max-h-full max-w-full flex-col items-center gap-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {current.kind === "video" ? (
+          <video
+            key={current.id}
+            src={current.url}
+            poster={current.preview ?? undefined}
+            controls
+            autoPlay
+            playsInline
+            className="max-h-[82vh] max-w-full object-contain"
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={current.url}
+            alt={`Visuel ${index + 1} sur ${visuals.length} — ${title}`}
+            className="max-h-[82vh] max-w-full object-contain"
+          />
+        )}
+
+        <div className="flex items-center gap-4 text-xs text-[#FAF6EE]/70">
+          {many ? (
+            <span>
+              {index + 1} / {visuals.length}
+            </span>
+          ) : null}
+          <a
+            href={current.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-4 hover:text-[#FAF6EE] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B]"
+          >
+            Ouvrir le fichier original
+          </a>
+        </div>
+      </div>
+    </div>,
+    document.body,
   )
 }

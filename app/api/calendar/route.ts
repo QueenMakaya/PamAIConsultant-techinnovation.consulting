@@ -5,14 +5,29 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 type Attachment = {
+  id?: string
   url?: string
   filename?: string
   type?: string
+  width?: number
+  height?: number
   thumbnails?: {
     small?: { url: string }
     large?: { url: string }
     full?: { url: string }
   }
+}
+
+// One attachment of a post, ready to render: `preview` feeds the card, `url`
+// is the original file (full resolution) behind the lightbox.
+export type Visual = {
+  id: string
+  kind: "image" | "video"
+  url: string
+  preview: string | null
+  filename: string
+  width: number | null
+  height: number | null
 }
 
 type AirtableRecord = {
@@ -29,7 +44,7 @@ export type Post = {
   caption: string
   hashtags: string
   link: string
-  visual: string | null
+  visuals: Visual[]
   approval: string
   comment: string
 }
@@ -51,16 +66,49 @@ function asString(value: unknown): string {
   return String(value)
 }
 
-function firstThumbnail(value: unknown): string | null {
-  if (!Array.isArray(value) || value.length === 0) return null
-  const first = value[0] as Attachment
-  return (
-    first?.thumbnails?.large?.url ??
-    first?.thumbnails?.full?.url ??
-    first?.thumbnails?.small?.url ??
-    first?.url ??
-    null
-  )
+function mapVisuals(value: unknown): Visual[] {
+  if (!Array.isArray(value)) return []
+
+  const attachments = (value as Attachment[])
+    .map((attachment, index) => ({ attachment, index }))
+    .filter(({ attachment }) => typeof attachment?.url === "string" && attachment.url.length > 0)
+
+  // Carousel slides often sit out of order in the cell ("…slide03" first), but
+  // their filenames carry the intended order — sort on that, original order
+  // breaking ties so unnamed files keep their place.
+  const collator = new Intl.Collator("fr", { numeric: true, sensitivity: "base" })
+  attachments.sort((a, b) => {
+    const byName = collator.compare(a.attachment.filename ?? "", b.attachment.filename ?? "")
+    return byName !== 0 ? byName : a.index - b.index
+  })
+
+  const visuals: Visual[] = attachments.map(({ attachment, index }) => {
+    const isVideo = (attachment.type ?? "").startsWith("video/")
+    const preview =
+      attachment.thumbnails?.large?.url ??
+      attachment.thumbnails?.full?.url ??
+      attachment.thumbnails?.small?.url ??
+      (isVideo ? null : (attachment.url as string))
+    return {
+      id: attachment.id ?? `${attachment.filename ?? "visuel"}-${index}`,
+      kind: isVideo ? ("video" as const) : ("image" as const),
+      url: attachment.url as string,
+      preview,
+      filename: attachment.filename ?? "",
+      width: typeof attachment.width === "number" ? attachment.width : null,
+      height: typeof attachment.height === "number" ? attachment.height : null,
+    }
+  })
+
+  // Airtable rarely generates a thumbnail for a video, which would leave a black
+  // box on the card. Reels ship with a cover image in the same cell — use it as
+  // the poster rather than showing nothing.
+  const cover = visuals.find((visual) => visual.kind === "image" && visual.preview)?.preview ?? null
+  for (const visual of visuals) {
+    if (visual.kind === "video" && !visual.preview) visual.preview = cover
+  }
+
+  return visuals
 }
 
 // Extract the leading numeric prefix from a title like "01 — Lancement" or
@@ -83,7 +131,7 @@ function mapRecord(record: AirtableRecord, client: ValidationClient): Post {
     caption: asString(f[FIELD.caption]),
     hashtags: FIELD.hashtags ? asString(f[FIELD.hashtags]) : "",
     link: asString(f[FIELD.link]),
-    visual: firstThumbnail(f[FIELD.visuals]),
+    visuals: mapVisuals(f[FIELD.visuals]),
     approval: toCanonicalApproval(client, asString(f[FIELD.approval])),
     comment: asString(f[FIELD.comment]),
   }

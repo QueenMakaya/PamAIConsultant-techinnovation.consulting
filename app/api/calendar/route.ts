@@ -119,6 +119,31 @@ function beatNumber(title: string): { key: string; number: number } {
   return { key: match[1], number: Number.parseInt(match[1], 10) }
 }
 
+// Opt-in per client (ValidationClient.hideWhenScheduled): a record is hidden
+// when its production-status single-select is one of the excluded options.
+// Single-select cells come back as the option label string (returnFieldsByFieldId
+// keys by ID but doesn't change values); older/other shapes may be an {id,name}
+// object — match on either the option ID or the label to cover both.
+function isHiddenByStatus(record: AirtableRecord, client: ValidationClient): boolean {
+  const cfg = client.hideWhenScheduled
+  if (!cfg) return false
+
+  const raw = record.fields[cfg.statusFieldId]
+  const value = Array.isArray(raw) ? raw[0] : raw
+
+  let id: string | null = null
+  let name = ""
+  if (value && typeof value === "object") {
+    const obj = value as { id?: unknown; name?: unknown }
+    if (typeof obj.id === "string") id = obj.id
+    if (typeof obj.name === "string") name = obj.name
+  } else {
+    name = asString(value)
+  }
+
+  return (id != null && cfg.excludeOptionIds.includes(id)) || cfg.excludeOptionNames.includes(name)
+}
+
 function mapRecord(record: AirtableRecord, client: ValidationClient): Post {
   const FIELD = client.fields
   const f = record.fields
@@ -212,7 +237,9 @@ export async function GET(request: NextRequest) {
       offset = page.offset
     } while (offset)
 
-    const posts = records.map((record) => mapRecord(record, client))
+    const posts = records
+      .filter((record) => !isHiddenByStatus(record, client))
+      .map((record) => mapRecord(record, client))
     const beats = groupIntoBeats(posts)
 
     return NextResponse.json({ beats })

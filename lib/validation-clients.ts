@@ -25,6 +25,17 @@ export type ApprovalLabels = Record<typeof APPROVED | typeof ADJUST, string>
 
 const DEFAULT_LABELS: ApprovalLabels = { [APPROVED]: APPROVED, [ADJUST]: ADJUST }
 
+// Opt-in, per-client: drop records whose production-status single-select is one
+// of the excluded options, so e.g. already-scheduled posts leave the validation
+// view. Records are fetched with returnFieldsByFieldId=true, which keys fields by
+// ID but still returns single-select *values* as the option label string — so we
+// match on both the option IDs and the option labels to be robust.
+export type HideWhenScheduled = {
+  statusFieldId: string
+  excludeOptionIds: string[]
+  excludeOptionNames: string[]
+}
+
 export type ValidationClient = {
   slug: string
   base: string
@@ -32,6 +43,7 @@ export type ValidationClient = {
   view?: string
   fields: ClientFields
   approvalLabels: ApprovalLabels
+  hideWhenScheduled?: HideWhenScheduled
 }
 
 type ClientDef = Omit<ValidationClient, "base" | "table" | "view" | "approvalLabels"> & {
@@ -70,6 +82,13 @@ const CLIENTS: ClientDef[] = [
     tokenEnv: "CHAFRIC_VALIDATION_TOKEN",
     base: () => "appNTAdE5R06eHkFF",
     table: () => "tbldnauStmzlJRb0l",
+    // Once a post is scheduled/published it leaves the validation view; only
+    // posts still needing validation (Idée, Prêt, À produire) stay visible.
+    hideWhenScheduled: {
+      statusFieldId: "fld6MsgbL1yeBwGqS", // Statut production
+      excludeOptionIds: ["selIpAjxIUlvid2gN", "selUx2Hhd5pyPrgbA"], // Programmé, Publié
+      excludeOptionNames: ["Programmé", "Publié"],
+    },
     fields: {
       title: "fld472KyjutpnHp6y", // Titre
       date: "fldtlTsO92yWEcoFI", // Date
@@ -124,6 +143,7 @@ export function resolveClient(token: unknown): ValidationClient | null {
         view: client.view?.(),
         fields: client.fields,
         approvalLabels: client.approvalLabels ?? DEFAULT_LABELS,
+        hideWhenScheduled: client.hideWhenScheduled,
       }
     }
   }

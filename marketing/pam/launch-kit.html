@@ -1,0 +1,184 @@
+<title>PAM Launch Kit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: a 3-week posting plan; each post is a row of visual + caption, grouped by week. */
+:root {
+  --brand: #00c1a6; --brand-ink: #007a68; --brand-soft: #e0f6f2; --on-brand: #0b2b26;
+  --ink: #3c3c3c; --fg: #2b2e2d; --muted: #5f6664; --paper: #f5f5f5; --card: #ffffff; --line: #e2e4e3;
+  --font-display: "Montserrat", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --brand-ink: #3fdcc4; --brand-soft: #143430; --ink: #2a2d2c; --fg: #eef1f0; --muted: #a7b0ad; --paper: #171a19; --card: #202423; --line: #333937; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --brand-ink: #3fdcc4; --brand-soft: #143430; --ink: #2a2d2c; --fg: #eef1f0; --muted: #a7b0ad; --paper: #171a19; --card: #202423; --line: #333937; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--fg); font-family: var(--font-body); font-size: 1.03rem; line-height: 1.55; }
+.wrap { max-width: 1000px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; line-height: 1.15; text-wrap: balance; }
+p { margin: 0; }
+:focus-visible { outline: 3px solid var(--brand-ink); outline-offset: 2px; }
+
+header { padding-block: 28px 8px; display: grid; gap: 14px; }
+.wm { width: 150px; height: auto; color: var(--brand); }
+header h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 800; }
+header p { color: var(--muted); max-width: 60ch; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); padding-block: 12px; border-bottom: 1px solid var(--line); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--card); }
+.seg button { font: 700 0.85rem var(--font-display); letter-spacing: .06em; border: 0; background: transparent; color: var(--fg); padding: 8px 16px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--brand); color: var(--on-brand); }
+
+.prep { margin-top: 28px; background: var(--brand-soft); border-radius: 4px; padding: 20px 22px; display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; }
+.prep img { width: 100%; border-radius: 3px; display: block; }
+.prep h2 { font-size: 1.1rem; margin-bottom: 8px; }
+.prep ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+
+.week { margin-top: 40px; }
+.week > h2 { font-size: 0.8rem; letter-spacing: .16em; text-transform: uppercase; color: var(--brand-ink); padding-bottom: 10px; border-bottom: 2px solid var(--brand); }
+.post { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 24px; padding-block: 24px; border-bottom: 1px solid var(--line); }
+.thumbs { display: flex; gap: 6px; overflow-x: auto; }
+.thumbs img { width: 100%; border-radius: 3px; display: block; border: 1px solid var(--line); }
+.thumbs.multi img { width: 46%; flex: none; }
+.thumbs.story img { width: 60%; }
+.nophoto { aspect-ratio: 4 / 5; border: 2px dashed var(--line); border-radius: 3px; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 16px; font-size: 0.95rem; }
+.meta { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.when { font: 700 0.75rem var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.meta h3 { font-size: 1.2rem; }
+.goal { display: inline-block; font: 700 0.7rem var(--font-display); letter-spacing: .1em; text-transform: uppercase; background: var(--brand-soft); color: var(--brand-ink); padding: 3px 9px; border-radius: 999px; width: fit-content; }
+.caption { white-space: pre-line; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 14px 16px; }
+.files { font-size: 0.88rem; color: var(--muted); word-break: break-all; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.copy { font: 700 0.8rem var(--font-display); letter-spacing: .06em; text-transform: uppercase; background: var(--brand); color: var(--on-brand); border: 0; border-radius: 999px; padding: 8px 16px; cursor: pointer; }
+.status { font-size: 0.88rem; color: var(--brand-ink); }
+.tips { margin-block: 40px 48px; background: var(--ink); color: #fff; border-radius: 4px; padding: 24px; display: grid; gap: 10px; }
+.tips h2 { font-size: 1.1rem; }
+.tips ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; color: #e3e6e5; }
+@media (max-width: 680px) {
+  .post, .prep { grid-template-columns: minmax(0, 1fr); }
+  .thumbs:not(.multi):not(.story) img, .nophoto { max-width: 280px; }
+}
+</style>
+
+<header class="wrap">
+  <svg class="wm" viewBox="0 0 400 100" role="img" aria-label="PAM"><g fill="none" stroke="currentColor" stroke-width="14"><path d="M14 95 V12 H62 a24 23 0 0 1 0 46 H14"/><path d="M100 95 L144 7 L188 95"/><path d="M117 66 H171"/><path d="M228 95 V10 L282 72 L336 10 V95"/></g><circle cx="282" cy="25" r="10" fill="currentColor"/></svg>
+  <h1>Three weeks to bring your page back</h1>
+  <p>Six posts and one Story, in order. Warm up first, teach second, offer last. Every caption ends with the same ask: DM “PAM”.</p>
+</header>
+
+<div class="bar"><div class="wrap row">
+  <span class="when">Captions</span>
+  <div class="seg" role="group" aria-label="Caption language">
+    <button type="button" id="lang-en" aria-pressed="true">English</button>
+    <button type="button" id="lang-fr" aria-pressed="false">Français</button>
+  </div>
+</div></div>
+
+<main class="wrap">
+  <section class="prep">
+    <img src="img/pam-s06-banner.png" alt="PAM banner: Your fractional co-founder. Plan. Act. Multiply.">
+    <div>
+      <h2>Before the first post</h2>
+      <ol>
+        <li>Upload the banner (1584 × 396, LinkedIn size).</li>
+        <li>Change your headline: <i>Fractional co-founder for entrepreneurs in Canada &amp; Africa · PAM: Plan. Act. Multiply.</i></li>
+        <li>Spend 15 minutes a day for a week commenting on others' posts. A page that was asleep needs a few days of activity before people see it again.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="week"><h2>Week 1 · Come back</h2>
+    <article class="post" data-key="p1">
+      <div class="thumbs"><img src="img/pam-s01-announce.png" alt="The co-founder who gets your business moving. Plan. Act. Multiply."></div>
+      <div class="meta"><span class="when">Tuesday</span><h3>I'm back, and here's why</h3><span class="goal">Awareness</span><p class="caption"></p><div class="row"><button class="copy" type="button">Copy caption</button><span class="status" aria-live="polite"></span></div></div>
+    </article>
+    <article class="post" data-key="p2">
+      <div class="thumbs multi"><img src="img/pam-s02a-cover.png" alt="Automation won't save a business that isn't ready. 3 signs to fix first."><img src="img/pam-s02b-sign1.png" alt="1. You're doing everything alone."><img src="img/pam-s02c-sign2.png" alt="2. Your offer changes every week."><img src="img/pam-s02d-sign3.png" alt="3. You can't name your customer in one sentence."><img src="img/pam-s02e-cta.png" alt="Fix these first. Then automate. DM me PAM to start."></div>
+      <div class="meta"><span class="when">Thursday · carousel, 5 slides</span><h3>3 signs you're not ready to automate</h3><span class="goal">Engagement</span><p class="caption"></p><div class="row"><button class="copy" type="button">Copy caption</button><span class="status" aria-live="polite"></span></div><p class="files">On LinkedIn, upload the 5 images as a multi-image post, or combine them into one PDF for a swipeable document.</p></div>
+    </article>
+  </section>
+
+  <section class="week"><h2>Week 2 · Show how</h2>
+    <article class="post" data-key="p3">
+      <div class="thumbs"><img src="img/pam-s03-method.png" alt="P Plan, A Act, M Multiply. 90 days, one co-founder."></div>
+      <div class="meta"><span class="when">Tuesday</span><h3>How PAM works</h3><span class="goal">Saves</span><p class="caption"></p><div class="row"><button class="copy" type="button">Copy caption</button><span class="status" aria-live="polite"></span></div></div>
+    </article>
+    <article class="post" data-key="p4">
+      <div class="thumbs"><div class="nophoto">Your own photo.<br>Ideally one from the Ask PAM days.</div></div>
+      <div class="meta"><span class="when">Thursday · your photo, no graphic</span><h3>Why I started PAM</h3><span class="goal">Trust</span><p class="caption"></p><div class="row"><button class="copy" type="button">Copy caption</button><span class="status" aria-live="polite"></span></div></div>
+    </article>
+    <article class="post" data-key="p5">
+      <div class="thumbs story"><img src="img/pam-s05-story.png" alt="Ask PAM. What's the one thing stopping your business from moving?"></div>
+      <div class="meta"><span class="when">Any day · Instagram or Facebook Story</span><h3>Ask PAM</h3><span class="goal">Conversations</span><p class="caption"></p><div class="row"><button class="copy" type="button">Copy text</button><span class="status" aria-live="polite"></span></div></div>
+    </article>
+  </section>
+
+  <section class="week"><h2>Week 3 · Make the offer</h2>
+    <article class="post" data-key="p6">
+      <div class="thumbs"><img src="img/pam-s04-offer.png" alt="3 founding spots. Co-Founder 90. Weekly co-founder session, grant search and applications, launch plan. DM me PAM to apply."></div>
+      <div class="meta"><span class="when">Tuesday</span><h3>3 founding spots</h3><span class="goal">Leads</span><p class="caption"></p><div class="row"><button class="copy" type="button">Copy caption</button><span class="status" aria-live="polite"></span></div></div>
+    </article>
+  </section>
+
+  <section class="tips">
+    <h2>What actually brings the first clients</h2>
+    <ul>
+      <li>Message 20 people you've already helped or met, one by one, the week the offer goes live. Posts warm them up; direct messages get the yes.</li>
+      <li>Answer every comment within the day. Early replies decide how far a post travels.</li>
+      <li>Every “PAM” DM gets the same reply: two questions about their business and a link to book the discovery call.</li>
+    </ul>
+  </section>
+</main>
+
+<script>
+var CAPTIONS = {
+  en: {
+    p1: "I've been quiet here for a while.\n\nI've been busy helping entrepreneurs in Canada and Africa structure, fund and launch their businesses. One thing kept coming back: most founders don't need another tool. They need a partner to plan with, act with and grow with.\n\nSo I'm making it official. PAM is my 90-day fractional co-founder program.\n\nPlan. Act. Multiply.\n\nMore this week.",
+    p2: "I automate social media for a living. I still tell many clients not to start there.\n\nIf one of these 3 signs sounds like you, fix it first. Automation will work much better after.\n\nWhich one is yours: 1, 2 or 3?",
+    p3: "How PAM works:\n\n30 days to plan.\n30 days to act.\n30 days to multiply.\n\nOne co-founder session a week, and someone following up on everything in between.\n\nSave this for when you're ready.",
+    p4: "In 2015 I co-founded Ask PAM, a concierge startup in Montreal.\n\nWe built the product, sold it to hotels and raised money. I made plenty of mistakes, mostly because I was deciding alone.\n\nThat's why PAM exists today. Founders shouldn't have to figure it all out by themselves.\n\nIf that's you right now, DM me “PAM”.",
+    p5: "Add a question sticker in the empty space: “Ask PAM”.\nShare the best answers (anonymously) in your next Stories.",
+    p6: "I'm opening 3 founding spots in Co-Founder 90.\n\nWeekly co-founder sessions, grant search and applications, and a launch plan we follow through together. For founders in Canada and Africa.\n\nDM me “PAM” and I'll send you the details."
+  },
+  fr: {
+    p1: "J'ai été discrète ici depuis un moment.\n\nJ'étais occupée à accompagner des entrepreneurs au Canada et en Afrique à structurer, financer et lancer leur entreprise. Un constat revenait sans cesse : la plupart des fondateurs n'ont pas besoin d'un outil de plus. Ils ont besoin d'un partenaire pour planifier, agir et grandir.\n\nAlors je l'officialise. PAM, c'est mon programme de cofondatrice fractionnelle sur 90 jours.\n\nPlanifier. Agir. Multiplier.\n\nLa suite cette semaine.",
+    p2: "J'automatise les réseaux sociaux de mes clients. Et pourtant, je dis souvent de ne pas commencer par là.\n\nSi un de ces 3 signes vous ressemble, réglez-le d'abord. L'automatisation fonctionnera beaucoup mieux ensuite.\n\nLequel est le vôtre : 1, 2 ou 3 ?",
+    p3: "Comment fonctionne PAM :\n\n30 jours pour planifier.\n30 jours pour agir.\n30 jours pour multiplier.\n\nUne séance de cofondation par semaine, et quelqu'un qui fait le suivi entre les deux.\n\nEnregistrez cette publication pour le jour où vous serez prêt·e.",
+    p4: "En 2015, j'ai cofondé Ask PAM, une startup de conciergerie à Montréal.\n\nNous avons bâti le produit, l'avons vendu à des hôtels et avons levé des fonds. J'ai fait beaucoup d'erreurs, surtout parce que je décidais seule.\n\nC'est pour ça que PAM existe aujourd'hui. Personne ne devrait bâtir son entreprise seul.\n\nSi c'est votre cas en ce moment, écrivez-moi « PAM » en privé.",
+    p5: "Ajoutez un sticker question dans l'espace vide : « Demandez à PAM ».\nPartagez les meilleures réponses (anonymement) dans vos prochaines Stories.",
+    p6: "J'ouvre 3 places fondatrices dans Co-Founder 90.\n\nDes séances de cofondation chaque semaine, la recherche de subventions et les demandes, et un plan de lancement qu'on suit ensemble. Pour les entrepreneurs au Canada et en Afrique.\n\nÉcrivez-moi « PAM » en privé et je vous envoie les détails."
+  }
+};
+var lang = 'en';
+try { lang = localStorage.getItem('pam-kit-lang') || 'en'; } catch (e) {}
+function render() {
+  document.querySelectorAll('.post').forEach(function (post) {
+    post.querySelector('.caption').textContent = CAPTIONS[lang][post.dataset.key];
+    post.querySelector('.status').textContent = '';
+  });
+  document.getElementById('lang-en').setAttribute('aria-pressed', lang === 'en');
+  document.getElementById('lang-fr').setAttribute('aria-pressed', lang === 'fr');
+}
+['en', 'fr'].forEach(function (l) {
+  document.getElementById('lang-' + l).addEventListener('click', function () {
+    lang = l; try { localStorage.setItem('pam-kit-lang', l); } catch (e) {} render();
+  });
+});
+document.querySelectorAll('.post .copy').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var post = btn.closest('.post'), cap = post.querySelector('.caption'), status = post.querySelector('.status');
+    function fallback() {
+      var r = document.createRange(); r.selectNodeContents(cap);
+      var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      status.textContent = 'Selected. Press Ctrl+C or ⌘C.';
+    }
+    try { navigator.clipboard.writeText(cap.textContent).then(function () { status.textContent = 'Copied.'; }, fallback); }
+    catch (e) { fallback(); }
+  });
+});
+render();
+</script>

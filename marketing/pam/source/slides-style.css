@@ -48,3 +48,6 @@ h2.w{color:#fff;font-size:84px}
 .b-title{font-family:'Montserrat';font-weight:800;font-size:60px;line-height:1;color:#fff}
 .b-sub{font-family:'Montserrat';font-weight:700;font-size:30px;color:var(--teal);letter-spacing:.02em}
 .banner::after{display:none}
+.fbcover{width:1640px;height:624px;padding:0}
+.fbcover::after{display:none}
+.fb-inner{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:20px;z-index:1;text-align:center}

@@ -131,11 +131,16 @@ footer { padding-block: 0 32px; color: var(--muted); font-size: 0.88rem; }
   .script::after { transform-origin: left; animation: brush 0.7s 0.25s ease-out both; }
   @keyframes brush { from { transform: rotate(-1.2deg) scaleX(0.2); } to { transform: rotate(-1.2deg) scaleX(1); } }
 }
+.lang { position: absolute; top: clamp(16px, 3vw, 28px); right: clamp(16px, 3vw, 28px); z-index: 2; display: inline-flex; border: 1px solid rgba(255,255,255,0.35); border-radius: 999px; overflow: hidden; }
+.lang button { font: 700 0.8rem var(--font-display); letter-spacing: .08em; background: transparent; color: #ffffff; border: 0; padding: 7px 13px; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: #ffffff; color: var(--petrol); }
 </style>
 
+<div id="lang-en">
 <header class="hero">
   <div class="wrap">
     <div class="panel">
+      <div class="lang" role="group" aria-label="Language"><button type="button" data-set="en" aria-pressed="true">EN</button><button type="button" data-set="fr" aria-pressed="false">FR</button></div>
       <svg class="wordmark" viewBox="0 0 400 100" role="img" aria-label="PAM">
         <g fill="none" stroke="currentColor" stroke-width="14" stroke-linejoin="miter">
           <path d="M14 95 V12 H62 a24 23 0 0 1 0 46 H14"/><path d="M100 95 L144 7 L188 95"/><path d="M117 66 H171"/><path d="M228 95 V10 L282 72 L336 10 V95"/>
@@ -239,10 +244,10 @@ footer { padding-block: 0 32px; color: var(--muted); font-size: 0.88rem; }
           <li><strong>Leave with a plan</strong>Your top 3 priorities, whether or not we work together.</li>
         </ol>
         <div class="contact">
-          <code id="email">alfred.pam@gmail.com</code>
-          <button class="btn" id="copy" type="button">Copy email</button>
+          <code class="email">alfred.pam@gmail.com</code>
+          <button class="btn copy" type="button">Copy email</button>
         </div>
-        <div class="copy-status" id="copy-status" aria-live="polite"></div>
+        <div class="copy-status"  aria-live="polite"></div>
       </div>
     </div>
   </section>
@@ -252,18 +257,156 @@ footer { padding-block: 0 32px; color: var(--muted); font-size: 0.88rem; }
   <div class="wrap">PAM · Fractional co-founder by Pamela Alfred · Prices in CAD, taxes extra.</div>
 </footer>
 
+</div>
+<div id="lang-fr" lang="fr" hidden>
+<header class="hero">
+  <div class="wrap">
+    <div class="panel">
+      <div class="lang" role="group" aria-label="Langue"><button type="button" data-set="en" aria-pressed="false">EN</button><button type="button" data-set="fr" aria-pressed="true">FR</button></div>
+      <svg class="wordmark" viewBox="0 0 400 100" role="img" aria-label="PAM">
+        <g fill="none" stroke="currentColor" stroke-width="14" stroke-linejoin="miter">
+          <path d="M14 95 V12 H62 a24 23 0 0 1 0 46 H14"/><path d="M100 95 L144 7 L188 95"/><path d="M117 66 H171"/><path d="M228 95 V10 L282 72 L336 10 V95"/>
+        </g>
+        <circle cx="282" cy="25" r="10" fill="#00c1a6"/>
+      </svg>
+      <p class="eyebrow">Cofondatrice à temps partagé pour entrepreneurs</p>
+      <h1>La cofondatrice qui fait avancer votre entreprise.</h1>
+      <span class="script">Planifier. Agir. Multiplier.</span>
+      <p class="lead"><strong>Une vraie cofondatrice pendant 90 jours.</strong> Sans céder de parts, sans salaire à payer.</p>
+      <div class="cta-row">
+        <a class="btn" href="#contact-fr">Réserver un appel gratuit de 20 min <span class="arrow" aria-hidden="true">→</span></a>
+        <span class="cta-note">Vous repartez avec vos 3 priorités.</span>
+      </div>
+    </div>
+    <ul class="adv">
+      <li><strong>Gardez 100 % de votre entreprise</strong><span>L'engagement d'une associée, sans partager la propriété.</span></li>
+      <li><strong>Un prix connu d'avance</strong><span>Tarif mensuel fixe. Aucune surprise à l'heure.</span></li>
+      <li><strong>Les choses avancent vraiment</strong><span>Une séance par semaine et un suivi entre les deux.</span></li>
+    </ul>
+  </div>
+</header>
+
+<main>
+  <section class="block">
+    <div class="wrap">
+      <div class="intro">
+        <p class="eyebrow">Ce que vous aurez dans 90 jours</p>
+        <h2>Planifier, Agir, Multiplier.</h2>
+      </div>
+      <div class="method">
+        <article class="phase">
+          <div class="phase-head"><span class="letter">P</span><div><div class="phase-name">Planifier</div><div class="days">Jours 1 à 30</div></div></div>
+          <p class="result">Un modèle d'affaires, une vision et une feuille de route clairs.</p>
+        </article>
+        <article class="phase">
+          <div class="phase-head"><span class="letter">A</span><div><div class="phase-name">Agir</div><div class="days">Jours 31 à 60</div></div></div>
+          <p class="result">Votre entreprise structurée et vos demandes de financement déposées.</p>
+        </article>
+        <article class="phase">
+          <div class="phase-head"><span class="letter">M</span><div><div class="phase-name">Multiplier</div><div class="days">Jours 61 à 90</div></div></div>
+          <p class="result">Vos premiers clients et une routine de vente qui tient.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <div class="intro">
+        <p class="eyebrow">Travailler ensemble</p>
+        <h2>Commencez petit. Allez plus loin au bon moment.</h2>
+      </div>
+      <div class="offers">
+        <article class="offer">
+          <span class="tag">Pour commencer</span>
+          <h3>Diagnostic de préparation</h3>
+          <div class="price">450 $ <small>CAD</small></div>
+          <ul><li>Séance de 90 minutes</li><li>Rapport et 5 priorités</li><li>Crédité sur Co-Founder 90</li></ul>
+        </article>
+        <article class="offer featured">
+          <span class="tag">Programme principal</span>
+          <h3>Co-Founder 90</h3>
+          <div class="price">1 200 $ <small>CAD / mois · 3 mois</small></div>
+          <ul><li>Une séance de cofondation par semaine</li><li>Soutien par WhatsApp et courriel</li><li>Recherche et demandes de subventions</li></ul>
+          <a class="btn" href="#contact-fr">Réserver un appel gratuit de 20 min <span class="arrow" aria-hidden="true">→</span></a>
+        </article>
+        <article class="offer">
+          <span class="tag">Après 90 jours</span>
+          <h3>Co-Founder en continu</h3>
+          <div class="price">900 $ <small>CAD / mois</small></div>
+          <ul><li>Une séance stratégique par mois</li><li>Deux suivis par mois</li><li>Arrêtez quand vous voulez</li></ul>
+        </article>
+      </div>
+      <p class="orgs"><strong>Incubateurs et programmes :</strong> PAM existe aussi en cohorte de 10 à 20 entrepreneurs, en français ou en anglais. Je ne prends jamais de pourcentage sur le financement obtenu.</p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap why">
+      <div>
+        <p class="eyebrow">Pourquoi Pamela</p>
+        <p class="script-quote">J'ai été à votre place.</p>
+      </div>
+      <ul class="facts">
+        <li><b>Fondatrice</b><span>Cofondatrice d'une startup techno de conciergerie à Montréal, financée par du capital de risque.</span></li>
+        <li><b>Conseillère</b><span>Conseillère en entrepreneuriat chez CHAFRIC.</span></li>
+        <li><b>Bâtisseuse</b><span>Tech Innovation Consulting depuis 2019 : IA et automatisation.</span></li>
+        <li><b>Portée</b><span>Français et anglais, au Canada et en Afrique.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="closing" id="contact-fr">
+    <div class="wrap">
+      <div class="close-card">
+        <h2>Réservez votre appel gratuit de 20 minutes.</h2>
+        <ol class="steps">
+          <li><strong>Écrivez-moi</strong>avec « PAM » en objet.</li>
+          <li><strong>Choisissez un moment</strong>Je réponds en moins de 24 h avec des disponibilités.</li>
+          <li><strong>Repartez avec un plan</strong>Vos 3 priorités, que l'on travaille ensemble ou non.</li>
+        </ol>
+        <div class="contact">
+          <code class="email">alfred.pam@gmail.com</code>
+          <button class="btn copy" type="button">Copier le courriel</button>
+        </div>
+        <div class="copy-status"  aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">PAM · Cofondatrice à temps partagé, par Pamela Alfred · Prix en dollars canadiens, taxes en sus.</div>
+</footer>
+
+</div>
 <script>
-document.getElementById('copy').addEventListener('click', function () {
-  var text = document.getElementById('email').textContent.trim();
-  var status = document.getElementById('copy-status');
-  function fallback() {
-    var range = document.createRange();
-    range.selectNodeContents(document.getElementById('email'));
-    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
-    status.textContent = 'Selected. Press Ctrl+C or ⌘C to copy.';
+(function () {
+  var blocks = { en: document.getElementById('lang-en'), fr: document.getElementById('lang-fr') };
+  function show(l) {
+    blocks.en.hidden = l !== 'en'; blocks.fr.hidden = l !== 'fr';
+    document.documentElement.lang = l;
+    try { localStorage.setItem('pam-offer-lang', l); } catch (e) {}
   }
-  try {
-    navigator.clipboard.writeText(text).then(function () { status.textContent = 'Email copied.'; }, fallback);
-  } catch (e) { fallback(); }
-});
+  var start = location.hash === '#fr' ? 'fr' : location.hash === '#en' ? 'en' : null;
+  if (!start) { try { start = localStorage.getItem('pam-offer-lang'); } catch (e) {} }
+  if (!start) start = (navigator.language || 'en').toLowerCase().indexOf('fr') === 0 ? 'fr' : 'en';
+  show(start);
+  document.querySelectorAll('.lang button').forEach(function (b) {
+    b.addEventListener('click', function () { show(b.dataset.set); window.scrollTo(0, 0); });
+  });
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var card = btn.closest('.close-card'), code = card.querySelector('.email'), status = card.querySelector('.copy-status');
+      var fr = !!btn.closest('#lang-fr');
+      function fallback() {
+        var r = document.createRange(); r.selectNodeContents(code);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        status.textContent = fr ? 'Sélectionné. Faites Ctrl+C ou ⌘C.' : 'Selected. Press Ctrl+C or ⌘C to copy.';
+      }
+      try { navigator.clipboard.writeText(code.textContent.trim()).then(function () { status.textContent = fr ? 'Courriel copié.' : 'Email copied.'; }, fallback); }
+      catch (e) { fallback(); }
+    });
+  });
+})();
 </script>

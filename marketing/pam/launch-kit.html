@@ -55,6 +55,25 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .copy { font: 700 0.8rem var(--font-display); letter-spacing: .06em; text-transform: uppercase; background: var(--brand); color: var(--on-brand); border: 0; border-radius: 999px; padding: 8px 16px; cursor: pointer; }
 .status { font-size: 0.88rem; color: var(--brand-ink); }
+.activate { margin-top: 28px; display: grid; gap: 14px; }
+.activate > h2 { font-size: 1.4rem; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: st; }
+.steps > li { counter-increment: st; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 16px 18px 16px 62px; position: relative; min-width: 0; }
+.steps > li::before { content: counter(st); position: absolute; left: 18px; top: 14px; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff; font: 800 0.95rem/30px var(--font-display); text-align: center; }
+.steps h3 { font-size: 1.02rem; margin-bottom: 6px; }
+.steps h3 small { font: 600 0.8rem var(--font-body); color: var(--muted); margin-left: 6px; }
+.steps ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.channels { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--card); }
+.channels table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.97rem; }
+.channels th, .channels td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.channels tr:last-child td { border-bottom: 0; }
+.channels th { font: 700 0.72rem var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.pill { display: inline-block; font: 700 0.72rem var(--font-display); letter-spacing: .08em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.pill.go { background: var(--brand-soft); color: var(--brand-ink); }
+.pill.later { background: #fbeccd; color: #6b4a05; }
+.pill.no { background: var(--line); color: var(--muted); }
+.post.dm { grid-template-columns: minmax(0, 1fr); border-bottom: 0; padding-block: 0; }
+.prep .covers { display: grid; gap: 8px; }
 .tips { margin-block: 40px 48px; background: var(--ink); color: #fff; border-radius: 4px; padding: 24px; display: grid; gap: 10px; }
 .tips h2 { font-size: 1.1rem; }
 .tips ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; color: #e3e6e5; }
@@ -72,7 +91,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 </header>
 
 <div class="bar"><div class="wrap row">
-  <span class="when">Captions</span>
+  <span class="when">Visuals and captions</span>
   <div class="seg" role="group" aria-label="Caption language">
     <button type="button" id="lang-en" aria-pressed="true">English</button>
     <button type="button" id="lang-fr" aria-pressed="false">Français</button>
@@ -80,13 +99,52 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 </div></div>
 
 <main class="wrap">
+  <section class="activate" id="activate">
+    <h2>Launch PAM, step by step</h2>
+    <ol class="steps">
+      <li><h3>Set up the basics <small>2 days</small></h3><ul>
+        <li>Share the offer page (Share menu, anyone with the link) and add that link to every bio. It opens in French or English by itself; add <i>#fr</i> or <i>#en</i> to force one.</li>
+        <li>Create a free 20-minute booking link (Calendly free plan, or Google Calendar appointment schedule) named “PAM: appel découverte / discovery call”.</li>
+        <li>Save the reply for “PAM” messages below.</li>
+        <li>List 20 people you've helped or met, and 5 organizations (incubators, chambers of commerce, entrepreneurship programs).</li></ul></li>
+      <li><h3>Refresh your profiles <small>1 day</small></h3><ul>
+        <li>LinkedIn: banner, new headline, a 3-line About, and the offer page in Featured.</li>
+        <li>Instagram: switch to a free professional account, update the bio and link.</li>
+        <li>Facebook: turn on Professional mode on your personal profile, add the cover, bio and link.</li>
+        <li>Then comment on other people's posts for 15 minutes a day for a week before you post.</li></ul></li>
+      <li><h3>Post the 3-week plan <small>weeks 1–3</small></h3><ul>
+        <li>Post on LinkedIn first, then the same day on Instagram and Facebook. Meta Business Suite publishes to both in one go.</li>
+        <li>Stories go on Instagram and Facebook. Answer every comment the same day.</li></ul></li>
+      <li><h3>Make the ask <small>week 3</small></h3><ul>
+        <li>Publish the offer post, then send personal messages to your 20 people that week.</li>
+        <li>Pitch a cohort pilot to 2 of your 5 organizations.</li></ul></li>
+      <li><h3>Count what happened <small>weeks 4–6</small></h3><ul>
+        <li>Track four numbers: “PAM” messages, calls booked, diagnostics sold, Co-Founder 90 signed.</li>
+        <li>Target: 3 paying founders and 1 organization pilot. That's the signal to keep going.</li></ul></li>
+    </ol>
+    <div class="channels"><table>
+      <thead><tr><th>Platform</th><th>Use it?</th><th>Why</th><th>Language</th></tr></thead>
+      <tbody>
+        <tr><td><b>LinkedIn</b></td><td><span class="pill go">Main channel</span></td><td>Your Canadian network, incubators, funders and diaspora professionals.</td><td>French first, English below</td></tr>
+        <tr><td><b>Facebook</b></td><td><span class="pill go">Yes</span></td><td>Small business owners in Quebec and Africa, plus entrepreneur groups.</td><td>French (English in anglophone groups)</td></tr>
+        <tr><td><b>Instagram</b></td><td><span class="pill go">Yes, lighter</span></td><td>Same visuals, plus Stories. Little extra work.</td><td>French</td></tr>
+        <tr><td><b>WhatsApp</b></td><td><span class="pill go">Yes</span></td><td>Status updates and one-to-one messages. Where many African founders actually talk business.</td><td>Both</td></tr>
+        <tr><td><b>TikTok</b></td><td><span class="pill later">Not yet</span></td><td>Needs 3 to 5 videos a week to work. Revisit in 3 months if you enjoy video.</td><td>—</td></tr>
+        <tr><td><b>X</b></td><td><span class="pill no">No</span></td><td>Little reach with small business founders in your markets.</td><td>—</td></tr>
+      </tbody>
+    </table></div>
+    <article class="post dm" data-key="dm">
+      <div class="meta"><h3>Your reply when someone sends “PAM”</h3><p class="caption"></p><div class="row"><button class="copy" type="button">Copy reply</button><span class="status" aria-live="polite"></span></div></div>
+    </article>
+  </section>
+
   <section class="prep">
-    <img src="img/pam-s06-banner.png" alt="PAM banner: Your fractional co-founder. Plan. Act. Multiply. No equity, no salary.">
+    <div class="covers"><img src="img/pam-s06-banner.png" alt="LinkedIn banner: Your fractional co-founder. Plan. Act. Multiply. No equity, no salary."><img src="img/pam-s07-fbcover.png" alt="Facebook cover: Your fractional co-founder. Plan. Act. Multiply. No equity, no salary."></div>
     <div>
       <h2>Before the first post</h2>
       <ol>
-        <li>Upload the banner (1584 × 396, LinkedIn size).</li>
-        <li>Change your headline: <i>Fractional co-founder for entrepreneurs in Canada &amp; Africa · PAM: Plan. Act. Multiply.</i></li>
+        <li>Upload the covers: the first image is for LinkedIn (1584 × 396), the second for Facebook (1640 × 624).</li>
+        <li>Change your headline: <i>Cofondatrice à temps partagé · Fractional co-founder for entrepreneurs in Canada &amp; Africa · PAM: Planifier. Agir. Multiplier.</i></li>
         <li>Spend 15 minutes a day for a week commenting on others' posts. A page that was asleep needs a few days of activity before people see it again.</li>
       </ol>
     </div>
@@ -143,14 +201,16 @@ var CAPTIONS = {
     p3: "How PAM works:\n\nPlan: your model, vision and roadmap, clear.\nAct: your business set up and funding applied for.\nMultiply: first customers and a sales routine.\n\n90 days, one weekly session, follow-up in between. No equity, no salary.\n\nDM me “PAM” to book a free 20-minute call.",
     p4: "In 2015 I co-founded a concierge startup in Montreal.\n\nWe built the product, sold it to hotels and raised money. I made plenty of mistakes, mostly because I was deciding alone.\n\nThat's why PAM exists today. Founders shouldn't have to figure it all out by themselves.\n\nIf that's you right now, DM me “PAM” for a free 20-minute call.",
     p5: "Add a question sticker in the empty space: “Your answer”.\nShare the best answers (anonymously) in your next Stories, with: “DM me PAM for a free 20-minute call.”",
+    dm: "Thanks for reaching out! Two quick questions so I can prepare:\n1) What does your business do, and where is it today?\n2) What's the one thing you most want to move in the next 90 days?\n\nThen pick a time for our free 20-minute call: [your booking link]",
     p6: "I'm opening 3 founding spots in Co-Founder 90.\n\nWhat you get: a co-founder for 90 days. Weekly sessions, grant search and applications, and a launch plan we follow through together.\nWhat you keep: 100% of your business. No equity, no salary.\n\nFor founders in Canada and Africa.\n\nDM me “PAM” to book a free 20-minute call."
   },
   fr: {
-    p1: "J'ai été discrète ici depuis un moment.\n\nJ'étais occupée à accompagner des entrepreneurs au Canada et en Afrique à structurer, financer et lancer leur entreprise. Un constat revenait sans cesse : la plupart des fondateurs n'ont pas besoin d'un outil de plus. Ils ont besoin d'un partenaire pour planifier, agir et grandir.\n\nAlors je l'officialise. PAM, c'est mon programme de cofondatrice fractionnelle sur 90 jours : une vraie partenaire, sans céder de parts ni payer de salaire.\n\nPlanifier. Agir. Multiplier.\n\nOn en parle ? Écrivez-moi « PAM » en privé pour un appel gratuit de 20 minutes.",
+    p1: "J'ai été discrète ici depuis un moment.\n\nJ'étais occupée à accompagner des entrepreneurs au Canada et en Afrique à structurer, financer et lancer leur entreprise. Un constat revenait sans cesse : la plupart des fondateurs n'ont pas besoin d'un outil de plus. Ils ont besoin d'un partenaire pour planifier, agir et grandir.\n\nAlors je l'officialise. PAM, c'est mon programme de cofondatrice à temps partagé sur 90 jours : une vraie partenaire, sans céder de parts ni payer de salaire.\n\nPlanifier. Agir. Multiplier.\n\nOn en parle ? Écrivez-moi « PAM » en privé pour un appel gratuit de 20 minutes.",
     p2: "J'automatise les réseaux sociaux de mes clients. Et pourtant, je dis souvent de ne pas commencer par là.\n\nSi un de ces 3 signes vous ressemble, réglez-le d'abord. L'automatisation fonctionnera beaucoup mieux ensuite.\n\nLequel est le vôtre : 1, 2 ou 3 ?\n\nÉcrivez-moi « PAM » en privé pour un appel gratuit de 20 minutes. Vous repartirez avec vos 3 priorités.",
     p3: "Comment fonctionne PAM :\n\nPlanifier : votre modèle, votre vision et votre feuille de route, clairs.\nAgir : votre entreprise structurée et vos demandes de financement déposées.\nMultiplier : vos premiers clients et une routine de vente.\n\n90 jours, une séance par semaine, un suivi entre les deux. Sans céder de parts, sans salaire.\n\nÉcrivez-moi « PAM » en privé pour un appel gratuit de 20 minutes.",
     p4: "En 2015, j'ai cofondé une startup de conciergerie à Montréal.\n\nNous avons bâti le produit, l'avons vendu à des hôtels et avons levé des fonds. J'ai fait beaucoup d'erreurs, surtout parce que je décidais seule.\n\nC'est pour ça que PAM existe aujourd'hui. Personne ne devrait bâtir son entreprise seul.\n\nSi c'est votre cas, écrivez-moi « PAM » en privé pour un appel gratuit de 20 minutes.",
     p5: "Ajoutez un sticker question dans l'espace vide : « Votre réponse ».\nPartagez les meilleures réponses (anonymement) dans vos prochaines Stories, avec : « Écrivez-moi PAM pour un appel gratuit de 20 minutes. »",
+    dm: "Merci pour votre message ! Deux petites questions pour préparer notre appel :\n1) Que fait votre entreprise et où en est-elle aujourd'hui ?\n2) Quelle est LA chose que vous voulez faire avancer dans les 90 prochains jours ?\n\nEnsuite, choisissez un moment pour notre appel gratuit de 20 minutes : [votre lien de réservation]",
     p6: "J'ouvre 3 places fondatrices dans Co-Founder 90.\n\nCe que vous obtenez : une cofondatrice pendant 90 jours. Des séances chaque semaine, la recherche de subventions et les demandes, et un plan de lancement qu'on suit ensemble.\nCe que vous gardez : 100 % de votre entreprise. Sans céder de parts, sans salaire.\n\nPour les entrepreneurs au Canada et en Afrique.\n\nÉcrivez-moi « PAM » en privé pour un appel gratuit de 20 minutes."
   }
 };
@@ -160,6 +220,9 @@ function render() {
   document.querySelectorAll('.post').forEach(function (post) {
     post.querySelector('.caption').textContent = CAPTIONS[lang][post.dataset.key];
     post.querySelector('.status').textContent = '';
+  });
+  document.querySelectorAll('main img').forEach(function (img) {
+    img.setAttribute('src', img.getAttribute('src').replace(/(-fr)?\.png$/, lang === 'fr' ? '-fr.png' : '.png'));
   });
   document.getElementById('lang-en').setAttribute('aria-pressed', lang === 'en');
   document.getElementById('lang-fr').setAttribute('aria-pressed', lang === 'fr');

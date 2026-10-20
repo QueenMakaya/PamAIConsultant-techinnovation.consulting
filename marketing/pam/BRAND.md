@@ -1,44 +1,39 @@
 # Brand — PAM (fractional co-founder by Pamela Alfred)
 
-Derived from the original Ask PAM designs in Canva (2016–2017): "Ask PAM Founders",
-"Ask PAM Product Visuals", "Ask PAM is a Worldwide Concierge Community".
+PAM stands on its own. Do not use "Ask PAM" (a 2015–2018 company) in any material.
 
 ## Colors
-- Primary:   #00c1a6  (PAM logo teal-green; main panels and backgrounds)
-- Primary, text on paper: #007a68 (same hue, readable on light backgrounds)
-- Ink band:  #3c3c3c  (Ask PAM charcoal caption band)
-- Text on green: #0b2b26
-- Background/surface: #f5f5f5
-- White: wordmark on green, brush-stroke underline
+- Petrol:      #0e3b43  (trust; main panels and backgrounds)
+- Petrol deep: #0a2c32  (caption bands)
+- Teal:        #00c1a6  (growth; highlights, the dot in the wordmark, underlines)
+- Teal on light backgrounds: #00796a
+- Gold:        #f4b63f  (success; calls to action only, nothing else)
+- Text on gold: #2a1f05
+- Paper:       #f3f6f5   Text: #1d2b2d   Muted: #56666a
 
 ## Typography
-- Headline: Montserrat 700–800 (wide geometric caps for labels, letter-spacing ~0.16em)
+- Headline: Montserrat 700–800 (wide caps for labels, letter-spacing ~0.14–0.16em)
 - Body: Source Sans 3 400/600
-- Accent script: Caveat Brush, with a white brush-stroke underline (use once per visual)
+- Accent script: Caveat Brush with a teal brush underline (once per visual, at most)
 
 ## Logo
-- PAM wordmark: wide geometric strokes; the M is a figure with a dot head between raised arms.
+- PAM wordmark: wide geometric strokes; the M is a figure with a teal dot head.
 - SVG source: `source/slides-body.html` (symbol `#pam`).
-- White on green, green on paper or charcoal. Top-left placement on posts.
+- White on petrol, petrol on paper. Top-left on posts.
+
+## Messaging rules
+- One advantage: a co-founder for 90 days, with no equity to give up and no salary to pay.
+- One call to action: DM me "PAM" to book a free 20-minute call (page: email with "PAM" in the subject).
+- Method: Plan · Act · Multiply (FR: Planifier · Agir · Multiplier).
 
 ## Voice & tone
-- In 3 words: direct, warm, practical
-- Do: short sentences, first person, concrete outcomes
-- Don't: hype, guaranteed results, "straight to success" promises
-
-## Method / acronym
-- PAM = Plan · Act · Multiply (FR: Planifier · Agir · Multiplier)
-
-## Default on-image language
-- English for now; French captions provided. Audience is bilingual (Quebec, francophone Africa).
+- Direct, warm, practical. Short sentences, first person, concrete outcomes.
+- No hype, no guaranteed results, no invented social proof.
 
 ## Audience
-- Early-stage founders in Canada (Quebec first) and Africa; diaspora founders building across both.
+- Early-stage founders in Canada (Quebec first) and Africa, including diaspora founders.
 - Organizations: incubators, accelerators, entrepreneurship programs (cohorts).
 
-## Standing conversion objective
-- Leads: one CTA everywhere, "DM me PAM".
-
 ## Visual do/don't
-- Do: flat brand-color panels, charcoal caption band, real photos of Pam.
+- Do: flat petrol panels, gold CTA band, real photos of Pamela.
 - Avoid: stock-photo cliché, monolithic "Africa" imagery, saviorism.

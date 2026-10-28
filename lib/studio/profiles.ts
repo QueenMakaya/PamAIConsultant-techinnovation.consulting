@@ -18,10 +18,13 @@ const STUDIOS: StudioDef[] = [{ profile: pamProfile, tokenEnv: "STUDIO_TOKEN", v
 export type ResolvedStudio = { profile: StudioProfile; voiceId: string | null }
 
 export function resolveStudio(token: unknown): ResolvedStudio | null {
-  if (typeof token !== "string" || token.length === 0) return null
+  // Trimmed on both sides: a stray space or newline pasted into the Vercel
+  // dashboard or the login box shouldn't lock anyone out.
+  const given = typeof token === "string" ? token.trim() : ""
+  if (!given) return null
   for (const studio of STUDIOS) {
-    const expected = process.env[studio.tokenEnv]
-    if (expected && token === expected) {
+    const expected = process.env[studio.tokenEnv]?.trim()
+    if (expected && given === expected) {
       const voiceId = process.env[studio.voiceIdEnv]
       return {
         profile: studio.profile,

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   // Names only (never values) of any token/airtable/validation-related keys —
   // reveals scope issues or key-name typos without exposing secrets.
   const allKeys = Object.keys(process.env)
-  const relevantKeys = allKeys.filter((k) => /token|airtable|validation/i.test(k)).sort()
+  const relevantKeys = allKeys.filter((k) => /token|airtable|validation|studio|anthropic|elevenlabs/i.test(k)).sort()
 
   return NextResponse.json({
     relevantKeys,
@@ -22,6 +22,12 @@ export async function GET(request: NextRequest) {
       length: typeof v === "string" ? v.length : 0,
       matchesProbe: v === probe,
       probeLength: probe.length,
+    },
+    studio: {
+      tokenPresent: !!process.env.STUDIO_TOKEN?.trim(),
+      anthropicKeyPresent: !!process.env.ANTHROPIC_API_KEY,
+      elevenLabsKeyPresent: !!process.env.ELEVENLABS_API_KEY,
+      voiceIdPresent: !!process.env.STUDIO_VOICE_ID,
     },
     airtable: {
       tokenPresent: !!process.env.AIRTABLE_TOKEN,

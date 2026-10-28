@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import type { LearnedMove } from "@/lib/studio/craft"
 import { TOPICS, fillBrief } from "@/lib/studio/topics"
 import type {
   AvatarLook,
@@ -16,6 +17,7 @@ import type {
   StudioSession,
   Turn,
 } from "@/lib/studio/types"
+import { BeautyFilter, DEFAULT_FILTER, type FilterSettings } from "./beauty"
 import { lines, ui } from "./copy"
 import { EpisodeClock, HostVoice, Listener, StageRecorder, StudioAudio, listeningSupported } from "./engine"
 import { Interview, type InterviewItem, type InterviewView } from "./interview"
@@ -31,7 +33,7 @@ import { Button, display, inputCls } from "./ui"
 
 type Screen = "loading" | "gate" | "welcome" | "brief" | "home" | "topic" | "plan" | "camera" | "review"
 
-type Settings = { uiLang: Lang; host: HostSettings; look: AvatarLook; format: Format }
+type Settings = { uiLang: Lang; host: HostSettings; look: AvatarLook; format: Format; filter: FilterSettings }
 
 function load<T>(key: string): T | null {
   try {
@@ -81,7 +83,9 @@ export default function Studio() {
   const [brief, setBrief] = useState<Brief>(EMPTY_BRIEF)
   const [episodes, setEpisodes] = useState<PastEpisode[]>([])
   const [portrait, setPortrait] = useState<string | null>(null)
+  const [learned, setLearned] = useState<LearnedMove[]>([])
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [filterSupported, setFilterSupported] = useState(true)
 
   // The episode being prepared.
   const [choice, setChoice] = useState<TopicChoice>({ kind: "topic", id: TOPICS[0].id })
@@ -120,6 +124,8 @@ export default function Studio() {
   const clockRef = useRef(new EpisodeClock())
   const recorderRef = useRef(new StageRecorder())
   const interviewRef = useRef<Interview | null>(null)
+  const beautyRef = useRef<BeautyFilter | null>(null)
+  const filterRef = useRef<FilterSettings>(DEFAULT_FILTER)
   const wakeRef = useRef<{ release(): Promise<void> } | null>(null)
   const stage = useRef<StageState>({
     format: "vertical",
@@ -136,6 +142,7 @@ export default function Studio() {
     look: { skin: "#8D5524", hair: "#1B1410", hairStyle: "puff", outfit: "#B5822B", accent: "#F2C14E", glasses: false, earrings: true },
     portrait: null,
     video: null,
+    cameraFrame: null,
     fonts: { display: "Georgia, serif", body: "system-ui, sans-serif" },
   })
 
@@ -147,6 +154,7 @@ export default function Studio() {
       brief: `studio:${slug}:brief`,
       episodes: `studio:${slug}:episodes`,
       portrait: `studio:${slug}:portrait`,
+      craft: `studio:${slug}:craft`,
     }),
     [slug],
   )
@@ -197,14 +205,18 @@ export default function Studio() {
             captions: true,
             autoLayout: true,
             practice: false,
+            nudges: true,
             ...stored?.host,
           },
           look: { ...s.profile.host.avatar, ...stored?.look },
           format: stored?.format ?? "vertical",
+          filter: { ...DEFAULT_FILTER, ...stored?.filter },
         }
         const storedBrief = load<Brief>(`${k}:brief`)
         const b = { ...EMPTY_BRIEF, name: s.profile.guest.name, ...storedBrief }
         const eps = load<PastEpisode[]>(`${k}:episodes`)
+        const craft = load<LearnedMove[]>(`${k}:craft`)
+        setLearned(Array.isArray(craft) ? craft : [])
         setSession(s)
         setSettings(next)
         setBrief(b)
@@ -235,6 +247,15 @@ export default function Studio() {
   const updateHost = (patch: Partial<HostSettings>) => setSettings((s) => (s ? { ...s, host: { ...s.host, ...patch } } : s))
   const updateLook = (patch: Partial<AvatarLook>) => setSettings((s) => (s ? { ...s, look: { ...s.look, ...patch } } : s))
   const format = settings?.format ?? "vertical"
+  filterRef.current = settings?.filter ?? DEFAULT_FILTER
+
+  useEffect(() => {
+    try {
+      setFilterSupported(!!document.createElement("canvas").getContext("webgl"))
+    } catch {
+      setFilterSupported(false)
+    }
+  }, [])
 
   // ---- Stage sync -----------------------------------------------------------
 
@@ -362,6 +383,10 @@ export default function Studio() {
       const micRaw = audioRef.current?.micLevel() ?? 0
       s.guestLevel += (micRaw - s.guestLevel) * Math.min(1, dt * 10)
       s.video = videoRef.current
+      if (s.video) {
+        beautyRef.current ??= new BeautyFilter()
+        s.cameraFrame = beautyRef.current.process(s.video, filterRef.current)
+      }
       const ctx = canvasRef.current?.getContext("2d")
       if (ctx) drawStage(ctx, s, (now - start) / 1000, dt)
       const iv = interviewRef.current
@@ -438,7 +463,7 @@ export default function Studio() {
     setPlanning(true)
     const lang = epLang === "mix" ? uiLang : epLang
     const res = await callHost<{ plan?: { title: Bilingual; questions: Bilingual[] } }>(
-      { action: "plan", lang, themeTitle: topic.title[lang], intent: topic.intent, note, past: episodes, brief },
+      { action: "plan", lang, themeTitle: topic.title[lang], intent: topic.intent, note, past: episodes, brief, learned },
       60000,
     )
     setPlanning(false)
@@ -537,6 +562,8 @@ export default function Studio() {
         }),
         brief,
         past: episodes,
+        nudges: settings.host.nudges,
+        learned,
       },
       {
         stage: stage.current,
@@ -832,6 +859,9 @@ export default function Studio() {
           }}
           onClose={() => void closeCamera()}
           onSettings={() => setSettingsOpen(true)}
+          filter={settings.filter}
+          onFilter={(f) => setSettings((s) => (s ? { ...s, filter: f } : s))}
+          filterSupported={filterSupported}
         />
       )}
 
@@ -878,6 +908,24 @@ export default function Studio() {
           setEpisodes([])
           save(keys.episodes, [])
         }}
+        learned={learned}
+        onLearn={async (transcript) => {
+          const res = await callHost<{ moves?: LearnedMove[] }>({ action: "learn", lang: uiLang, transcript }, 120000)
+          if (!res?.moves?.length) return false
+          setLearned((list) => {
+            const next = [...list, ...res.moves!].slice(-20)
+            save(keys.craft, next)
+            return next
+          })
+          return true
+        }}
+        onRemoveLearned={(i) =>
+          setLearned((list) => {
+            const next = list.filter((_, j) => j !== i)
+            save(keys.craft, next)
+            return next
+          })
+        }
       />
     </div>
   )

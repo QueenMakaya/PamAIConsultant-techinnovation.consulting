@@ -74,7 +74,16 @@ export type PlanQuestion = { id: string; text: Bilingual; kind: "question" | "cl
 
 export type EpisodePlan = { title: Bilingual; questions: PlanQuestion[] }
 
-export type TurnKind = "opener" | "question" | "followup" | "rephrase" | "transition" | "comfort" | "closing" | "outro"
+export type TurnKind =
+  | "opener"
+  | "question"
+  | "followup"
+  | "nudge"
+  | "rephrase"
+  | "transition"
+  | "comfort"
+  | "closing"
+  | "outro"
 
 // One thing the host said, plus what the guest answered right after it.
 export type Turn = {
@@ -85,6 +94,8 @@ export type Turn = {
   endAt: number
   answer: string
   segments: { start: number; end: number; text: string }[]
+  // The playbook technique behind an AI line (follow-ups, nudges).
+  technique?: string
 }
 
 // The guest's memory of earlier episodes, kept in the browser and sent along so
@@ -98,7 +109,7 @@ export type PastEpisode = {
   summary: string
 }
 
-export type HostDecision = { action: "follow_up" | "move_on"; line: string }
+export type HostDecision = { action: "follow_up" | "move_on"; technique: string; line: string }
 
 // Everything one recording turns into.
 export type ContentPack = {

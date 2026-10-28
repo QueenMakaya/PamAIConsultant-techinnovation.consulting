@@ -1,3 +1,4 @@
+import { TECHNIQUES, type LearnedMove } from "@/lib/studio/craft"
 import type { Bilingual, Brief, EpisodeLang, Lang, PastEpisode, Turn, TurnKind } from "@/lib/studio/types"
 import { fill, lines } from "./copy"
 import type { EpisodeClock, HostVoice, Listener, StageRecorder, StudioAudio } from "./engine"
@@ -33,6 +34,9 @@ export type InterviewConfig = {
   vars: (lang: Lang) => Record<string, string>
   brief: Brief | null
   past: PastEpisode[]
+  // The host speaks up when the guest goes quiet.
+  nudges: boolean
+  learned: LearnedMove[]
 }
 
 type CallHost = <T>(body: Record<string, unknown>, timeoutMs: number) => Promise<T | null>
@@ -52,6 +56,14 @@ export type InterviewDeps = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+// Silence long enough to help, short enough not to cut a thought: a pause
+// before answering gets a way in; a pause mid-answer gets a short prompt to
+// continue. Voice from the mic counts as speech even when transcription lags.
+const START_SILENCE_MS = 9000
+const MID_SILENCE_MS = 6500
+const VOICE_LEVEL = 0.12
+const MAX_NUDGES = 2
+
 export class Interview {
   turns: Turn[] = []
   private index = 0
@@ -61,6 +73,9 @@ export class Interview {
   private paused = false
   private stopping = false
   private finishing = false
+  private listenStartedAt = 0
+  private lastVoiceAt = 0
+  private nudgesHere = 0
 
   constructor(
     private readonly cfg: InterviewConfig,
@@ -81,9 +96,9 @@ export class Interview {
     this.d.onView({ mode })
   }
 
-  private async say(kind: TurnKind, text: string, lang: Lang) {
+  private async say(kind: TurnKind, text: string, lang: Lang, technique?: string) {
     if (this.stopping && kind !== "outro") return
-    const turn: Turn = { kind, text, lang, at: this.d.clock.now(), endAt: 0, answer: "", segments: [] }
+    const turn: Turn = { kind, text, lang, at: this.d.clock.now(), endAt: 0, answer: "", segments: [], technique }
     this.turns.push(turn)
     const s = this.d.stage
     s.layoutTarget = 0
@@ -99,6 +114,8 @@ export class Interview {
     if (this.stopping) return
     this.d.stage.layoutTarget = this.cfg.autoLayout ? 1 : 0
     this.setMode("listening")
+    this.listenStartedAt = performance.now()
+    this.lastVoiceAt = 0
     this.d.listener.start(lang)
   }
 
@@ -140,6 +157,7 @@ export class Interview {
     const item = this.cfg.items[this.index]
     const lang = this.langFor(this.index)
     this.questionTurn = this.turns.length
+    this.nudgesHere = 0
     this.d.onView({ index: this.index, total: this.cfg.items.length })
     await this.say(item.kind, item.text[lang], lang)
     const upcoming = this.cfg.items[this.index + 1]
@@ -191,7 +209,7 @@ export class Interview {
       let transition = ""
       if (this.cfg.ai && this.cfg.followUps > 0 && answer.trim().length > 12) {
         this.setMode("thinking")
-        const res = await this.d.callHost<{ decision?: { action: string; line: string } }>(
+        const res = await this.d.callHost<{ decision?: { action: string; technique?: string; line: string } }>(
           {
             action: "followup",
             lang,
@@ -202,13 +220,14 @@ export class Interview {
             followUpsLeft: this.cfg.followUps - this.followUps.length,
             past: this.cfg.past,
             brief: this.cfg.brief,
+            learned: this.cfg.learned,
           },
           15000,
         )
         const decision = res?.decision
         if (decision?.action === "follow_up" && decision.line && this.followUps.length < this.cfg.followUps) {
           this.followUps.push(decision.line)
-          await this.say("followup", decision.line, lang)
+          await this.say("followup", decision.line, lang, decision.technique)
           this.listen(lang)
           return
         }
@@ -242,7 +261,7 @@ export class Interview {
       if (this.cfg.ai) {
         this.setMode("thinking")
         const res = await this.d.callHost<{ line?: string }>(
-          { action: "rephrase", lang, themeTitle: this.cfg.themeTitle(lang), question, brief: this.cfg.brief },
+          { action: "rephrase", lang, themeTitle: this.cfg.themeTitle(lang), question, brief: this.cfg.brief, learned: this.cfg.learned },
           12000,
         )
         line = res?.line ?? ""
@@ -321,19 +340,69 @@ export class Interview {
     await this.d.recorder.stop()
   }
 
-  // Called every frame: optional auto-advance after a silence.
-  tick(now: number) {
-    const wait = this.cfg.autoAdvance
-    const listener = this.d.listener
-    if (
-      wait > 0 &&
-      this.d.stage.hostMode === "listening" &&
-      !this.busy &&
-      !this.paused &&
-      listener.segments.length > 0 &&
-      now - listener.lastHeardAt > wait * 1000
-    ) {
-      void this.next()
+  // The host speaks up after a silence, using the playbook.
+  private async nudge(kind: "start" | "mid") {
+    if (this.busy || this.paused || this.stopping) return
+    this.busy = true
+    this.nudgesHere += 1
+    try {
+      this.collect()
+      const lang = this.langFor(this.index)
+      const question = this.cfg.items[this.index].text[lang]
+      const answer = this.turns
+        .slice(this.questionTurn)
+        .map((t) => t.answer)
+        .filter(Boolean)
+        .join(" ")
+      let line = ""
+      let technique = kind === "start" ? "easy_entry" : "say_more"
+      if (this.cfg.ai) {
+        this.setMode("thinking")
+        const res = await this.d.callHost<{ nudge?: { technique: string; line: string } }>(
+          {
+            action: "nudge",
+            kind,
+            lang,
+            themeTitle: this.cfg.themeTitle(lang),
+            question,
+            answer,
+            brief: this.cfg.brief,
+            learned: this.cfg.learned,
+          },
+          9000,
+        )
+        if (res?.nudge?.line) {
+          line = res.nudge.line
+          technique = res.nudge.technique
+        }
+      }
+      if (!line) line = TECHNIQUES.find((t) => t.id === technique)?.example[lang] ?? ""
+      await this.say("nudge", line, lang, technique)
+      this.listen(lang)
+    } finally {
+      this.busy = false
     }
+  }
+
+  // Called every frame: silence nudges, then optional auto-advance.
+  tick(now: number) {
+    if (this.d.stage.hostMode !== "listening" || this.busy || this.paused || this.stopping) return
+    const listener = this.d.listener
+    if (this.d.stage.guestLevel > VOICE_LEVEL) this.lastVoiceAt = now
+    const spoken = listener.heardAnything || this.lastVoiceAt > this.listenStartedAt
+    const lastActivity = Math.max(this.listenStartedAt, this.lastVoiceAt, spoken ? listener.lastHeardAt : 0)
+    const canNudge = this.cfg.nudges && this.nudgesHere < MAX_NUDGES
+
+    if (canNudge && !spoken && now - this.listenStartedAt > START_SILENCE_MS) {
+      void this.nudge("start")
+      return
+    }
+    if (canNudge && spoken && now - lastActivity > MID_SILENCE_MS) {
+      void this.nudge("mid")
+      return
+    }
+
+    const wait = this.cfg.autoAdvance
+    if (wait > 0 && !canNudge && spoken && now - lastActivity > wait * 1000) void this.next()
   }
 }

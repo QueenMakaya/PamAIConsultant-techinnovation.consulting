@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { aiConfigured, decideFollowUp, planEpisode, rephraseQuestion, writeContent } from "@/lib/studio/ai"
+import { aiConfigured, decideFollowUp, learnFromInterview, nudgeGuest, planEpisode, rephraseQuestion, writeContent } from "@/lib/studio/ai"
+import type { LearnedMove } from "@/lib/studio/craft"
 import { resolveStudio } from "@/lib/studio/profiles"
 import type { Brief, Lang, PastEpisode, Turn } from "@/lib/studio/types"
 
@@ -21,6 +22,9 @@ type HostBody = {
   past?: unknown
   turns?: unknown
   brief?: unknown
+  learned?: unknown
+  kind?: unknown
+  transcript?: unknown
 }
 
 const str = (v: unknown, max = 20000) => (typeof v === "string" ? v.slice(0, max) : "")
@@ -46,6 +50,14 @@ function turnList(v: unknown): Turn[] {
       at: typeof t.at === "number" ? t.at : 0,
       segments: [],
     }))
+}
+
+function learnedList(v: unknown): LearnedMove[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .filter((m): m is LearnedMove => !!m && typeof m === "object" && typeof (m as LearnedMove).name === "string")
+    .slice(0, 20)
+    .map((m) => ({ name: str(m.name, 80), when: str(m.when, 300), how: str(m.how, 400), example: str(m.example, 300) }))
 }
 
 function briefOf(v: unknown): Brief | null {
@@ -83,6 +95,7 @@ export async function POST(request: NextRequest) {
   const lang: Lang = body.lang === "en" ? "en" : "fr"
   const themeTitle = str(body.themeTitle, 200)
   const brief = briefOf(body.brief)
+  const learned = learnedList(body.learned)
   const { profile } = studio
 
   try {
@@ -96,6 +109,7 @@ export async function POST(request: NextRequest) {
           intent: str(body.intent, 600),
           note: str(body.note, 2000),
           past: pastList(body.past),
+          learned,
         })
         return NextResponse.json({ ok: true, plan })
       }
@@ -110,12 +124,34 @@ export async function POST(request: NextRequest) {
           followUpsSoFar: strList(body.followUpsSoFar),
           followUpsLeft: typeof body.followUpsLeft === "number" ? Math.max(0, Math.min(3, body.followUpsLeft)) : 0,
           past: pastList(body.past),
+          learned,
         })
         return NextResponse.json({ ok: true, decision })
       }
       case "rephrase": {
-        const line = await rephraseQuestion({ profile, brief, lang, themeTitle, question: str(body.question, 2000) })
+        const line = await rephraseQuestion({ profile, brief, lang, themeTitle, question: str(body.question, 2000), learned })
         return NextResponse.json({ ok: true, line })
+      }
+      case "nudge": {
+        const nudge = await nudgeGuest({
+          profile,
+          brief,
+          lang,
+          themeTitle,
+          question: str(body.question, 2000),
+          answer: str(body.answer),
+          kind: body.kind === "mid" ? "mid" : "start",
+          learned,
+        })
+        return NextResponse.json({ ok: true, nudge })
+      }
+      case "learn": {
+        const transcript = str(body.transcript, 120000).trim()
+        if (transcript.length < 400) {
+          return NextResponse.json({ ok: false, error: "transcript_too_short" }, { status: 400 })
+        }
+        const moves = await learnFromInterview({ transcript, lang })
+        return NextResponse.json({ ok: true, moves })
       }
       case "content": {
         const turns = turnList(body.turns)

@@ -260,6 +260,8 @@ export class Listener {
   private segmentStart = 0
   segments: Segment[] = []
   lastHeardAt = 0
+  // True once anything at all (even an interim guess) was heard since start().
+  heardAnything = false
   blocked = false
 
   constructor(
@@ -275,6 +277,7 @@ export class Listener {
     this.segments = []
     this.segmentStart = this.clock()
     this.lastHeardAt = performance.now()
+    this.heardAnything = false
     this.active = true
     const rec = new Ctor()
     rec.lang = lang === "fr" ? "fr-CA" : "en-US"
@@ -296,6 +299,7 @@ export class Listener {
         }
       }
       this.lastHeardAt = performance.now()
+      if (this.finalText || interim) this.heardAnything = true
       this.onUpdate(this.finalText, interim.trim())
     }
     rec.onerror = (e) => {

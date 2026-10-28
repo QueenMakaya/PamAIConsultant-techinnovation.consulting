@@ -28,6 +28,8 @@ export type StageState = {
   look: AvatarLook
   portrait: HTMLImageElement | null
   video: HTMLVideoElement | null
+  // The camera after the confidence filter, when it's on.
+  cameraFrame: HTMLCanvasElement | null
   fonts: { display: string; body: string }
 }
 
@@ -144,13 +146,18 @@ function nameTag(ctx: CanvasRenderingContext2D, s: StageState, r: Rect, name: st
   ctx.fillText(name, tag.x + size * 0.7, tag.y + h / 2 + 1)
 }
 
-// Cover-crops the camera into r. Returns false while there's no picture yet.
-function drawCamera(ctx: CanvasRenderingContext2D, v: HTMLVideoElement | null, r: Rect): boolean {
+// Cover-crops the camera (filtered when the filter is on) into r. Returns
+// false while there's no picture yet.
+function drawCamera(ctx: CanvasRenderingContext2D, s: StageState, r: Rect): boolean {
+  const v = s.video
   if (!v || v.readyState < 2 || v.videoWidth === 0) return false
-  const scale = Math.max(r.w / v.videoWidth, r.h / v.videoHeight)
-  const w = v.videoWidth * scale
-  const h = v.videoHeight * scale
-  ctx.drawImage(v, r.x + (r.w - w) / 2, r.y + (r.h - h) / 2, w, h)
+  const src: HTMLVideoElement | HTMLCanvasElement = s.cameraFrame ?? v
+  const sw = s.cameraFrame ? s.cameraFrame.width : v.videoWidth
+  const sh = s.cameraFrame ? s.cameraFrame.height : v.videoHeight
+  const scale = Math.max(r.w / sw, r.h / sh)
+  const w = sw * scale
+  const h = sh * scale
+  ctx.drawImage(src, r.x + (r.w - w) / 2, r.y + (r.h - h) / 2, w, h)
   return true
 }
 
@@ -160,7 +167,7 @@ function drawGuestPanel(ctx: CanvasRenderingContext2D, s: StageState, r: Rect) {
   ctx.clip()
   ctx.fillStyle = "#16221C"
   ctx.fillRect(r.x, r.y, r.w, r.h)
-  if (!drawCamera(ctx, s.video, r)) {
+  if (!drawCamera(ctx, s, r)) {
     ctx.fillStyle = "rgba(250,246,238,0.12)"
     ctx.beginPath()
     ctx.arc(r.x + r.w / 2, r.y + r.h * 0.42, Math.min(r.w, r.h) * 0.16, 0, Math.PI * 2)
@@ -582,7 +589,7 @@ function drawVertical(ctx: CanvasRenderingContext2D, s: StageState, t: number) {
   const full: Rect = { x: 0, y: 0, w: V_W, h: V_H }
   ctx.fillStyle = "#16221C"
   ctx.fillRect(0, 0, V_W, V_H)
-  drawCamera(ctx, s.video, full)
+  drawCamera(ctx, s, full)
 
   // Soft shades top and bottom keep the text readable over any background.
   const top = ctx.createLinearGradient(0, 0, 0, 640)

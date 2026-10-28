@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Captions, Download, FileText, Play, RotateCcw, Sparkles } from "lucide-react"
 import type { ContentPack, Format, Turn } from "@/lib/studio/types"
+import { techniqueName } from "@/lib/studio/craft"
 import type { UiCopy } from "../copy"
 import { Button, Card, CopyButton, Eyebrow, SectionLabel, Segmented, Skeleton, cx, display } from "../ui"
 
@@ -238,6 +239,11 @@ export default function ReviewScreen({
                   <p className="text-[#F2C14E]/90">
                     <span className="mr-2 tabular-nums text-[#F7F3EA]/35">{clock(tn.at)}</span>
                     {tn.text}
+                    {techniqueName(tn.technique) && (
+                      <span className="ml-2 inline-block rounded-full bg-white/[0.07] px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-[#F7F3EA]/55">
+                        {techniqueName(tn.technique)}
+                      </span>
+                    )}
                   </p>
                   {tn.answer && <p className="mt-1.5 pl-12 text-[#F7F3EA]/80">{tn.answer}</p>}
                 </li>

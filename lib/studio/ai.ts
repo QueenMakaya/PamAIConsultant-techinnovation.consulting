@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
 import * as z from "zod/v4"
+import { TECHNIQUE_IDS, craftBlock, type LearnedMove } from "./craft"
 import type { Brief, ContentPack, HostDecision, Lang, PastEpisode, StudioProfile, Turn } from "./types"
 
 // Server-side brain of the host. Live calls must come back fast enough to feel
@@ -49,7 +50,18 @@ function guestContext(profile: StudioProfile, brief: Brief | null): string {
   return lines.filter(Boolean).join("\n") || "No background given."
 }
 
-function hostSystem(profile: StudioProfile, brief: Brief | null, lang: Lang): string {
+// Stable for a whole session, so it's sent as a cached block: the live calls
+// (follow-ups, nudges) then reuse it instead of re-reading it every time.
+function hostSystem(
+  profile: StudioProfile,
+  brief: Brief | null,
+  lang: Lang,
+  learned: LearnedMove[] = [],
+): Anthropic.Beta.BetaTextBlockParam[] {
+  return [{ type: "text", text: hostSystemText(profile, brief, lang, learned), cache_control: { type: "ephemeral" } }]
+}
+
+function hostSystemText(profile: StudioProfile, brief: Brief | null, lang: Lang, learned: LearnedMove[]): string {
   const name = guestName(profile, brief)
   return `You are "${profile.host.name[lang]}", the host of "${profile.showName[lang]}", an interview show recorded for YouTube and short-form video. The twist: the guest, ${name}, an entrepreneur, is interviewed by a stylized avatar of themself, so you are warm, close and a little playful, like the guest's own inner voice that knows when to dig.
 
@@ -63,7 +75,9 @@ How you speak — everything you write is read aloud by a voice engine:
 - No lists, no emojis, no stage directions, no quotation marks around your own line.
 - Build on something concrete the guest just said: a name, a number, a feeling, a turning point. Ask for the moment, the story, the lesson.
 - Write in ${LANG_NAME[lang]}.${lang === "fr" ? ' Address the guest with "tu". Natural, warm international French that sounds right in Montreal.' : ""}
-- The guest may be new to being on camera. Never judge, never lecture, never push on something the guest avoided or declined.`
+- The guest may be new to being on camera. Never judge, never lecture, never push on something the guest avoided or declined.
+
+${craftBlock(learned)}`
 }
 
 function memoryBlock(past: PastEpisode[]): string {
@@ -89,6 +103,7 @@ export async function planEpisode(input: {
   intent: string
   note: string
   past: PastEpisode[]
+  learned: LearnedMove[]
 }): Promise<{ title: { fr: string; en: string }; questions: { fr: string; en: string }[] }> {
   const { profile, brief, lang } = input
   const response = await getClient().beta.messages.parse({
@@ -96,7 +111,7 @@ export async function planEpisode(input: {
     max_tokens: 8000,
     ...FALLBACK,
     output_config: { effort: "medium", format: betaZodOutputFormat(PlanSchema) },
-    system: hostSystem(profile, brief, lang),
+    system: hostSystem(profile, brief, lang, input.learned),
     messages: [
       {
         role: "user",
@@ -127,6 +142,7 @@ Each question is one spoken sentence, specific to this guest and business — ne
 
 const DecisionSchema = z.object({
   action: z.enum(["follow_up", "move_on"]),
+  technique: z.enum(TECHNIQUE_IDS),
   line: z.string(),
 })
 
@@ -140,6 +156,7 @@ export async function decideFollowUp(input: {
   followUpsSoFar: string[]
   followUpsLeft: number
   past: PastEpisode[]
+  learned: LearnedMove[]
 }): Promise<HostDecision> {
   const { profile, brief, lang } = input
   const prompt = `Episode theme: ${input.themeTitle}
@@ -155,14 +172,15 @@ ${input.answer || "(no words were captured)"}
 
 Decide what you do next. You may ask ${input.followUpsLeft} more follow-up(s) on this question.
 - "follow_up": the answer opened a door worth one more step (a story hinted at but not told, a client mentioned but not described, a feeling named but not explored, a vague claim that deserves an example or a number). "line" is that single follow-up question.
-- "move_on": the answer is complete, the guest signalled they want to move on or stay private, or nothing was captured. "line" is a brief, warm acknowledgement of a few words that does not summarise and does not ask anything — the next question is read right after it.`
+- "move_on": the answer is complete, the guest signalled they want to move on or stay private, or nothing was captured. "line" is a brief, warm acknowledgement of a few words that does not summarise and does not ask anything — the next question is read right after it.
+"technique" is the playbook technique your line uses (use "affirm" for a move-on acknowledgement).`
 
   const response = await getClient().beta.messages.parse({
     model: MODEL,
     max_tokens: 2000,
     ...FALLBACK,
     output_config: { effort: "low", format: betaZodOutputFormat(DecisionSchema) },
-    system: hostSystem(profile, brief, lang),
+    system: hostSystem(profile, brief, lang, input.learned),
     messages: [{ role: "user", content: prompt }],
   })
   if (response.stop_reason === "refusal" || !response.parsed_output) {
@@ -181,13 +199,14 @@ export async function rephraseQuestion(input: {
   lang: Lang
   themeTitle: string
   question: string
+  learned: LearnedMove[]
 }): Promise<string> {
   const response = await getClient().beta.messages.parse({
     model: MODEL,
     max_tokens: 2000,
     ...FALLBACK,
     output_config: { effort: "low", format: betaZodOutputFormat(RephraseSchema) },
-    system: hostSystem(input.profile, input.brief, input.lang),
+    system: hostSystem(input.profile, input.brief, input.lang, input.learned),
     messages: [
       {
         role: "user",
@@ -204,6 +223,78 @@ Ask the same thing from a simpler, more concrete angle — easier to start answe
     throw new Error("no_rephrase")
   }
   return response.parsed_output.line
+}
+
+// ---- Live: the guest went quiet --------------------------------------------
+
+const NudgeSchema = z.object({ technique: z.enum(TECHNIQUE_IDS), line: z.string() })
+
+export async function nudgeGuest(input: {
+  profile: StudioProfile
+  brief: Brief | null
+  lang: Lang
+  themeTitle: string
+  question: string
+  answer: string
+  kind: "start" | "mid"
+  learned: LearnedMove[]
+}): Promise<{ technique: string; line: string }> {
+  const situation =
+    input.kind === "start"
+      ? `The guest has been silent for several seconds without starting to answer. They may be frozen, searching or intimidated. Offer an easy way in (usually "easy_entry" or "one_moment") — warm, low-pressure, never the original question repeated.`
+      : `The guest started answering, then went quiet for several seconds without signalling they were done. Help them continue the thread they opened (usually "mirror", "say_more", "label" or "specifics"), based on their last words. Keep it very short — a mirror can be two or three words.`
+  const response = await getClient().beta.messages.parse({
+    model: MODEL,
+    max_tokens: 1500,
+    ...FALLBACK,
+    output_config: { effort: "low", format: betaZodOutputFormat(NudgeSchema) },
+    system: hostSystem(input.profile, input.brief, input.lang, input.learned),
+    messages: [
+      {
+        role: "user",
+        content: `Episode theme: ${input.themeTitle}
+
+The question on the table:
+${input.question}
+
+What the guest has said so far (live speech-to-text):
+${input.answer || "(nothing yet)"}
+
+${situation}
+"line" is what you say, one short spoken sentence at most. "technique" is the playbook technique it uses.`,
+      },
+    ],
+  })
+  if (response.stop_reason === "refusal" || !response.parsed_output) throw new Error("no_nudge")
+  return response.parsed_output
+}
+
+// ---- Learning from interviews the guest admires --------------------------------
+
+const LearnSchema = z.object({
+  moves: z.array(z.object({ name: z.string(), when: z.string(), how: z.string(), example: z.string() })),
+})
+
+export async function learnFromInterview(input: { transcript: string; lang: Lang }): Promise<LearnedMove[]> {
+  const response = await getClient().beta.messages.parse({
+    model: MODEL,
+    max_tokens: 8000,
+    ...FALLBACK,
+    output_config: { effort: "medium", format: betaZodOutputFormat(LearnSchema) },
+    system: `You study how great interviewers work. From an interview transcript, you extract the reusable moves the interviewer makes — how they open, follow up, handle silence or vague answers, go deeper, and close — so another host can apply them to entrepreneurs. Write in ${LANG_NAME[input.lang]}.`,
+    messages: [
+      {
+        role: "user",
+        content: `Transcript of an interview the guest admires:
+
+${input.transcript}
+
+Extract 3 to 8 distinct interviewer moves that would help someone interview an entrepreneur about their business. For each: "name" (2 to 5 words), "when" to use it, "how" to do it, and "example" — a new example line in your own words for an entrepreneur interview. Never copy more than a few words from the transcript; describe the technique, don't reproduce the interview. Skip moves that are just ordinary questions.`,
+      },
+    ],
+  })
+  if (response.stop_reason === "refusal" || !response.parsed_output) throw new Error("no_moves")
+  return response.parsed_output.moves.slice(0, 8)
 }
 
 // ---- After the episode: posts that sell --------------------------------------

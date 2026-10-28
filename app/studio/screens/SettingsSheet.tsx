@@ -1,9 +1,11 @@
 "use client"
 
-import { Volume2 } from "lucide-react"
+import { useState } from "react"
+import { Sparkles, Volume2, X } from "lucide-react"
+import { TECHNIQUES, type LearnedMove } from "@/lib/studio/craft"
 import type { AvatarLook, HairStyle, Lang } from "@/lib/studio/types"
-import type { UiCopy } from "../copy"
-import { Button, SectionLabel, Segmented, Sheet, Swatches, Toggle } from "../ui"
+import { fill, type UiCopy } from "../copy"
+import { Button, SectionLabel, Segmented, Sheet, Swatches, Toggle, cx, inputCls } from "../ui"
 import AvatarPreview from "./AvatarPreview"
 
 export type HostSettings = {
@@ -12,6 +14,7 @@ export type HostSettings = {
   captions: boolean
   autoLayout: boolean
   practice: boolean
+  nudges: boolean
 }
 
 const SKINS = ["#F1C7A5", "#D9A47A", "#B97A4E", "#8D5524", "#6B3E1F", "#4A2912"]
@@ -40,6 +43,9 @@ export default function SettingsSheet({
   onExport,
   onImport,
   onClearMemory,
+  learned,
+  onLearn,
+  onRemoveLearned,
 }: {
   open: boolean
   onClose: () => void
@@ -60,7 +66,20 @@ export default function SettingsSheet({
   onExport: () => void
   onImport: (file: File | undefined) => void
   onClearMemory: () => void
+  learned: LearnedMove[]
+  onLearn: (transcript: string) => Promise<boolean>
+  onRemoveLearned: (index: number) => void
 }) {
+  const [transcript, setTranscript] = useState("")
+  const [learnState, setLearnState] = useState<"idle" | "busy" | "error">("idle")
+
+  const learn = async () => {
+    setLearnState("busy")
+    const ok = await onLearn(transcript)
+    setLearnState(ok ? "idle" : "error")
+    if (ok) setTranscript("")
+  }
+
   return (
     <Sheet open={open} onClose={onClose} title={t.settingsTitle} closeLabel={t.close}>
       <div className="space-y-9">
@@ -100,10 +119,63 @@ export default function SettingsSheet({
             onChange={(v) => onHost({ autoAdvance: v })}
           />
           <div className="mt-4 divide-y divide-white/[0.06]">
+            <div className="pb-2">
+              <Toggle label={t.nudges} checked={host.nudges} onChange={(v) => onHost({ nudges: v })} />
+              <p className="-mt-1 text-xs text-[#F7F3EA]/45">{t.nudgesHint}</p>
+            </div>
             <Toggle label={t.captions} checked={host.captions} onChange={(v) => onHost({ captions: v })} />
             <Toggle label={t.autoLayout} checked={host.autoLayout} onChange={(v) => onHost({ autoLayout: v })} />
             <Toggle label={t.practice} checked={host.practice} onChange={(v) => onHost({ practice: v })} />
           </div>
+        </section>
+
+        <section>
+          <SectionLabel>{t.styleSection}</SectionLabel>
+          <p className="text-sm leading-relaxed text-[#F7F3EA]/60">{fill(t.styleCore, { n: TECHNIQUES.length })}</p>
+
+          <p className="mb-2 mt-5 text-sm font-semibold text-[#F7F3EA]">{t.learnedMoves}</p>
+          {learned.length === 0 ? (
+            <p className="text-sm text-[#F7F3EA]/45">{t.learnedEmpty}</p>
+          ) : (
+            <ul className="space-y-2">
+              {learned.map((m, i) => (
+                <li key={`${m.name}-${i}`} className="flex items-start gap-3 rounded-2xl bg-white/[0.05] p-3">
+                  <div className="flex-1 text-sm">
+                    <p className="font-semibold text-[#F7F3EA]">{m.name}</p>
+                    <p className="mt-0.5 text-[#F7F3EA]/55">{m.how}</p>
+                    <p className="mt-1 italic text-[#F2C14E]/80">« {m.example} »</p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={t.remove}
+                    onClick={() => onRemoveLearned(i)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#F7F3EA]/50 hover:bg-white/[0.08]"
+                  >
+                    <X size={16} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {ai && (
+            <div className="mt-5 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
+              <p className="text-sm font-semibold text-[#F7F3EA]">{t.learnTitle}</p>
+              <p className="mt-1 text-xs leading-relaxed text-[#F7F3EA]/50">{t.learnHint}</p>
+              <textarea
+                rows={5}
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder={t.learnPlaceholder}
+                className={cx(inputCls, "mt-3 resize-none text-sm")}
+              />
+              {learnState === "error" && <p className="mt-2 text-xs text-[#FF8A80]">{t.learnError}</p>}
+              <Button className="mt-3" disabled={transcript.trim().length < 400 || learnState === "busy"} onClick={() => void learn()}>
+                <Sparkles size={16} className={learnState === "busy" ? "animate-pulse" : undefined} />
+                {learnState === "busy" ? t.learning : t.learnButton}
+              </Button>
+            </div>
+          )}
         </section>
 
         <section>

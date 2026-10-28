@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react"
-import { ArrowRight, Camera as CameraIcon, Coffee, MoreHorizontal, Pause, Play, Repeat, Settings, SkipForward, Square, SwitchCamera, Wand2, X } from "lucide-react"
+import { ArrowRight, Camera as CameraIcon, Coffee, MoreHorizontal, Pause, Play, Repeat, Settings, SkipForward, Sparkles, Square, SwitchCamera, Wand2, X } from "lucide-react"
 import type { Format } from "@/lib/studio/types"
+import { FILTER_PRESETS, filterActive, type FilterSettings } from "../beauty"
 import { fill, type UiCopy } from "../copy"
 import type { InterviewView } from "../interview"
 import { stageSize } from "../stage"
-import { Button, IconButton, Sheet, cx, display } from "../ui"
+import { Button, IconButton, Segmented, Sheet, cx, display } from "../ui"
 
 export type CameraPhase = "ready" | "countdown" | "live"
 
@@ -62,6 +63,9 @@ export default function CameraScreen({
   onEnd,
   onClose,
   onSettings,
+  filter,
+  onFilter,
+  filterSupported,
 }: {
   t: UiCopy
   format: Format
@@ -89,10 +93,14 @@ export default function CameraScreen({
   onEnd: () => void
   onClose: () => void
   onSettings: () => void
+  filter: FilterSettings
+  onFilter: (f: FilterSettings) => void
+  filterSupported: boolean
 }) {
   const { w, h } = stageSize(format)
   const fit = useFit(w / h)
   const [more, setMore] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
   const ringRef = useRef<HTMLSpanElement>(null)
   const live = phase === "live"
   const listening = live && view.mode === "listening" && !view.paused
@@ -167,6 +175,15 @@ export default function CameraScreen({
         </div>
 
         <div className="flex gap-2">
+          {!live && phase !== "countdown" && (
+            <IconButton
+              label={t.filter}
+              onClick={() => setFilterOpen(true)}
+              className={filterActive(filter) ? "bg-[#F2C14E] text-[#14110A] hover:bg-[#F6D06F]" : undefined}
+            >
+              <Sparkles size={19} />
+            </IconButton>
+          )}
           {canFlip && !live && (
             <IconButton label="Flip" onClick={onFlip}>
               <SwitchCamera size={19} />
@@ -346,6 +363,48 @@ export default function CameraScreen({
         </div>
         {live && <p className="mt-2 text-center text-sm font-semibold">{view.paused ? t.resume : t.next}</p>}
       </div>
+
+      <Sheet open={filterOpen} onClose={() => setFilterOpen(false)} title={t.filterTitle} closeLabel={t.close}>
+        {!filterSupported ? (
+          <p className="text-sm text-[#F7F3EA]/60">{t.filterNoGpu}</p>
+        ) : (
+          <div className="space-y-6">
+            <p className="text-sm leading-relaxed text-[#F7F3EA]/60">{t.filterHint}</p>
+            <Segmented
+              full
+              value={filter.preset === "custom" ? ("" as FilterSettings["preset"]) : filter.preset}
+              options={[
+                { value: "off", label: t.filterOff },
+                { value: "soft", label: t.filterSoft },
+                { value: "glow", label: t.filterGlow },
+              ]}
+              onChange={(p) => p !== "custom" && onFilter({ preset: p, ...FILTER_PRESETS[p] })}
+            />
+            {(
+              [
+                ["smooth", t.smooth],
+                ["light", t.light],
+                ["warmth", t.warmth],
+              ] as const
+            ).map(([key, label]) => (
+              <label key={key} className="block">
+                <span className="mb-2 flex justify-between text-sm text-[#F7F3EA]/85">
+                  {label}
+                  <span className="tabular-nums text-[#F7F3EA]/45">{Math.round(filter[key] * 100)}</span>
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(filter[key] * 100)}
+                  onChange={(e) => onFilter({ ...filter, preset: "custom", [key]: Number(e.target.value) / 100 })}
+                  className="h-11 w-full cursor-pointer accent-[#F2C14E]"
+                />
+              </label>
+            ))}
+          </div>
+        )}
+      </Sheet>
 
       <Sheet open={more} onClose={() => setMore(false)} title={t.more} closeLabel={t.close}>
         <div className="grid gap-2">

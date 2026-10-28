@@ -122,6 +122,32 @@ const CLIENTS: ClientDef[] = [
       comment: "fldvSt3oifN4jo9Xq", // Commentaire de Sam
     },
   },
+  {
+    // ROOMA / Room in Africa "Calendrier".
+    slug: "rooma",
+    tokenEnv: "ROOMA_VALIDATION_TOKEN",
+    base: () => "appPuYrpgIa4lIFbn",
+    table: () => "tbltCcaNqkF0kkPTm",
+    // Once a post is scheduled/published it leaves the validation view; only
+    // posts still needing validation (Idée, Prêt, À produire) stay visible.
+    hideWhenScheduled: {
+      statusFieldId: "fldi0zfeNn4MGLmgb", // Statut production
+      excludeOptionIds: ["selAIXt8UfJtOKWzU", "selmyBtS6Hah0wCIR"], // Programmé, Publié
+      excludeOptionNames: ["Programmé", "Publié"],
+    },
+    fields: {
+      title: "fld5e9OrVR8rWCgqC", // Titre
+      date: "fldONRjNmXTcq9Nce", // Date
+      channel: "fldfWb62vpH2EFX6U", // Plateforme
+      format: "fldNOosuEQ2HCX8WA", // Format
+      caption: "fldGRYmTBZezhrmUt", // Légende proposée
+      hashtags: "fldA9ZY7lquNGGdoP", // Mots-clés / Hashtags
+      link: "fld68HVQaXd7OMU5V", // Lien publié
+      visuals: "fldA4aa9eQOJuuHVs", // Visuels
+      approval: "fldapXKg8RW2Jzmxo", // Validation client
+      comment: "fldOQDWJJLooWoHYY", // Commentaires ROOMA
+    },
+  },
 ]
 
 // Airtable option label → canonical label the page understands.

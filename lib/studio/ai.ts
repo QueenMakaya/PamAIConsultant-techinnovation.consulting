@@ -1,11 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
 import * as z from "zod/v4"
-import type { HostDecision, Lang, PastEpisode, StudioProfile, Turn, WrapUp } from "./types"
+import type { Brief, ContentPack, HostDecision, Lang, PastEpisode, StudioProfile, Turn } from "./types"
 
-// Server-side brain of the host. Each live call must come back fast enough to
-// feel like a conversation, so they run at low effort with short outputs; the
-// post-episode wrap-up has time and runs higher.
+// Server-side brain of the host. Live calls must come back fast enough to feel
+// like a conversation, so they run at low effort with short outputs; planning
+// and the post-episode content pack have time and run higher.
 
 const MODEL = "claude-opus-5-5"
 
@@ -28,18 +28,42 @@ export function aiConfigured(): boolean {
 
 const LANG_NAME: Record<Lang, string> = { fr: "French", en: "English" }
 
-function hostSystem(profile: StudioProfile, lang: Lang): string {
-  return `You are "${profile.host.name[lang]}", the host of "${profile.showName[lang]}", a weekly YouTube interview show. The twist: the guest, ${profile.guest.name}, is being interviewed by a stylized avatar of themself, so you are warm, close and a little playful, like the guest's own inner voice that knows when to dig.
+function guestName(profile: StudioProfile, brief: Brief | null): string {
+  return brief?.name?.trim() || profile.guest.name
+}
 
-About the guest (background only; never recite it, never invent anything beyond it or beyond what the guest says on camera):
-${profile.guest.bio.en}
+// What the host knows about the guest: the profile bio plus the written brief.
+function guestContext(profile: StudioProfile, brief: Brief | null): string {
+  const lines = [profile.guest.bio.en && `Background: ${profile.guest.bio.en}`]
+  if (brief) {
+    const fields: [string, string][] = [
+      ["Business", brief.business],
+      ["What they sell", brief.offer],
+      ["Who they help", brief.audience],
+      ["The change they create", brief.transformation],
+      ["Proof (a result they're proud of)", brief.proof],
+      ["What viewers should do after watching", [brief.cta, brief.link].filter(Boolean).join(" — ")],
+    ]
+    for (const [label, value] of fields) if (value?.trim()) lines.push(`${label}: ${value.trim()}`)
+  }
+  return lines.filter(Boolean).join("\n") || "No background given."
+}
+
+function hostSystem(profile: StudioProfile, brief: Brief | null, lang: Lang): string {
+  const name = guestName(profile, brief)
+  return `You are "${profile.host.name[lang]}", the host of "${profile.showName[lang]}", an interview show recorded for YouTube and short-form video. The twist: the guest, ${name}, an entrepreneur, is interviewed by a stylized avatar of themself, so you are warm, close and a little playful, like the guest's own inner voice that knows when to dig.
+
+What you know about the guest (never recite it, never invent anything beyond it or beyond what the guest says on camera):
+${guestContext(profile, brief)}
+
+Your job is to draw out stories that make viewers trust the guest and want what they offer — without ever sounding like an advert. Concrete moments, real clients, numbers, feelings and turning points sell; claims and adjectives don't.
 
 How you speak — everything you write is read aloud by a voice engine:
 - One or two short spoken sentences, 35 words at most.
 - No lists, no emojis, no stage directions, no quotation marks around your own line.
 - Build on something concrete the guest just said: a name, a number, a feeling, a turning point. Ask for the moment, the story, the lesson.
 - Write in ${LANG_NAME[lang]}.${lang === "fr" ? ' Address the guest with "tu". Natural, warm international French that sounds right in Montreal.' : ""}
-- The guest is new to being on camera. Never judge, never lecture, never push on something the guest avoided or declined.`
+- The guest may be new to being on camera. Never judge, never lecture, never push on something the guest avoided or declined.`
 }
 
 function memoryBlock(past: PastEpisode[]): string {
@@ -50,6 +74,57 @@ function memoryBlock(past: PastEpisode[]): string {
     .join("\n")
 }
 
+// ---- Planning ---------------------------------------------------------------
+
+const PlanSchema = z.object({
+  title: z.object({ fr: z.string(), en: z.string() }),
+  questions: z.array(z.object({ fr: z.string(), en: z.string() })),
+})
+
+export async function planEpisode(input: {
+  profile: StudioProfile
+  brief: Brief | null
+  lang: Lang
+  topicTitle: string
+  intent: string
+  note: string
+  past: PastEpisode[]
+}): Promise<{ title: { fr: string; en: string }; questions: { fr: string; en: string }[] }> {
+  const { profile, brief, lang } = input
+  const response = await getClient().beta.messages.parse({
+    model: MODEL,
+    max_tokens: 8000,
+    ...FALLBACK,
+    output_config: { effort: "medium", format: betaZodOutputFormat(PlanSchema) },
+    system: hostSystem(profile, brief, lang),
+    messages: [
+      {
+        role: "user",
+        content: `Plan today's episode.
+
+Topic: ${input.topicTitle}
+What this episode is for: ${input.intent}
+${input.note.trim() ? `What the guest wants to talk about today, in their words: ${input.note.trim()}\n` : ""}
+Earlier episodes (avoid repeating them; build on open threads):
+${memoryBlock(input.past)}
+
+Write 6 interview questions in the order you'll ask them:
+1. An opener that gets the guest talking easily and could become a scroll-stopping first line of a clip.
+2-5. The heart: the story, the people they help, the offer shown through a real moment or client, proof.
+6. A forward-looking question that lets the guest naturally say what viewers should do next.
+Each question is one spoken sentence, specific to this guest and business — never generic interview filler. Give every question in both French (with "tu") and English, with the same meaning. Also give a short episode title (under 60 characters) in both languages.`,
+      },
+    ],
+  })
+  if (response.stop_reason === "refusal" || !response.parsed_output) throw new Error("no_plan")
+  const plan = response.parsed_output
+  plan.questions = plan.questions.filter((q) => q.fr.trim() && q.en.trim()).slice(0, 8)
+  if (plan.questions.length === 0) throw new Error("no_plan")
+  return plan
+}
+
+// ---- Live: follow-ups and rephrasing ------------------------------------------
+
 const DecisionSchema = z.object({
   action: z.enum(["follow_up", "move_on"]),
   line: z.string(),
@@ -57,6 +132,7 @@ const DecisionSchema = z.object({
 
 export async function decideFollowUp(input: {
   profile: StudioProfile
+  brief: Brief | null
   lang: Lang
   themeTitle: string
   question: string
@@ -65,7 +141,7 @@ export async function decideFollowUp(input: {
   followUpsLeft: number
   past: PastEpisode[]
 }): Promise<HostDecision> {
-  const { profile, lang } = input
+  const { profile, brief, lang } = input
   const prompt = `Episode theme: ${input.themeTitle}
 
 Earlier episodes (you may call back to one if it truly connects, at most once per episode):
@@ -78,7 +154,7 @@ What the guest answered (live speech-to-text, may contain recognition errors):
 ${input.answer || "(no words were captured)"}
 
 Decide what you do next. You may ask ${input.followUpsLeft} more follow-up(s) on this question.
-- "follow_up": the answer opened a door worth one more step (a story hinted at but not told, a feeling named but not explored, a vague claim that deserves an example). "line" is that single follow-up question.
+- "follow_up": the answer opened a door worth one more step (a story hinted at but not told, a client mentioned but not described, a feeling named but not explored, a vague claim that deserves an example or a number). "line" is that single follow-up question.
 - "move_on": the answer is complete, the guest signalled they want to move on or stay private, or nothing was captured. "line" is a brief, warm acknowledgement of a few words that does not summarise and does not ask anything — the next question is read right after it.`
 
   const response = await getClient().beta.messages.parse({
@@ -86,7 +162,7 @@ Decide what you do next. You may ask ${input.followUpsLeft} more follow-up(s) on
     max_tokens: 2000,
     ...FALLBACK,
     output_config: { effort: "low", format: betaZodOutputFormat(DecisionSchema) },
-    system: hostSystem(profile, lang),
+    system: hostSystem(profile, brief, lang),
     messages: [{ role: "user", content: prompt }],
   })
   if (response.stop_reason === "refusal" || !response.parsed_output) {
@@ -101,6 +177,7 @@ const RephraseSchema = z.object({ line: z.string() })
 
 export async function rephraseQuestion(input: {
   profile: StudioProfile
+  brief: Brief | null
   lang: Lang
   themeTitle: string
   question: string
@@ -110,7 +187,7 @@ export async function rephraseQuestion(input: {
     max_tokens: 2000,
     ...FALLBACK,
     output_config: { effort: "low", format: betaZodOutputFormat(RephraseSchema) },
-    system: hostSystem(input.profile, input.lang),
+    system: hostSystem(input.profile, input.brief, input.lang),
     messages: [
       {
         role: "user",
@@ -129,13 +206,27 @@ Ask the same thing from a simpler, more concrete angle — easier to start answe
   return response.parsed_output.line
 }
 
-const WrapUpSchema = z.object({
-  titles: z.array(z.string()),
-  description: z.string(),
-  chapters: z.array(z.object({ turn: z.number(), title: z.string() })),
-  shorts: z.array(z.object({ turn: z.number(), quote: z.string(), hook: z.string() })),
-  tags: z.array(z.string()),
-  thumbnailText: z.string(),
+// ---- After the episode: posts that sell --------------------------------------
+
+const ContentSchema = z.object({
+  clips: z.array(
+    z.object({
+      turn: z.number(),
+      hook: z.string(),
+      onScreenText: z.string(),
+      caption: z.string(),
+      hashtags: z.array(z.string()),
+    }),
+  ),
+  linkedin: z.string(),
+  instagram: z.object({ caption: z.string(), carousel: z.array(z.string()) }),
+  youtube: z.object({
+    titles: z.array(z.string()),
+    description: z.string(),
+    chapters: z.array(z.object({ turn: z.number(), title: z.string() })),
+    tags: z.array(z.string()),
+    thumbnailText: z.string(),
+  }),
   summary: z.string(),
 })
 
@@ -145,17 +236,19 @@ function formatClock(ms: number): string {
   return `${m}:${String(s % 60).padStart(2, "0")}`
 }
 
-export async function writeWrapUp(input: {
+export async function writeContent(input: {
   profile: StudioProfile
+  brief: Brief | null
   lang: Lang
   themeTitle: string
   turns: Turn[]
-}): Promise<WrapUp> {
-  const { profile, lang } = input
+}): Promise<ContentPack> {
+  const { profile, brief, lang } = input
+  const name = guestName(profile, brief)
   const transcript = input.turns
     .map(
       (t, i) =>
-        `[turn ${i} · ${formatClock(t.at)} · ${t.kind}]\nHOST: ${t.text}${t.answer ? `\n${profile.guest.name.toUpperCase()}: ${t.answer}` : ""}`,
+        `[turn ${i} · ${formatClock(t.at)} · ${t.kind}]\nHOST: ${t.text}${t.answer ? `\n${name.toUpperCase()}: ${t.answer}` : ""}`,
     )
     .join("\n\n")
 
@@ -163,33 +256,41 @@ export async function writeWrapUp(input: {
     model: MODEL,
     max_tokens: 16000,
     ...FALLBACK,
-    output_config: { effort: "medium", format: betaZodOutputFormat(WrapUpSchema) },
-    system: `You turn a recorded episode of "${profile.showName[lang]}" into a YouTube publishing pack for its creator, ${profile.guest.name}. The show is a transparent, personal look at the creator's entrepreneurial journey. Write in ${LANG_NAME[lang]}. Stay faithful to what was actually said — never invent facts, numbers or names. The transcript comes from live speech-to-text, so silently fix obvious recognition errors.`,
+    output_config: { effort: "high", format: betaZodOutputFormat(ContentSchema) },
+    system: `You are a short-form content strategist for entrepreneurs. You turn a recorded interview of ${name} into posts that stop the scroll, build trust and sell — in the creator's own voice, first person, in ${LANG_NAME[lang]}.
+
+About the creator:
+${guestContext(profile, brief)}
+
+Rules you never break:
+- Stay faithful to what was actually said. Never invent facts, numbers, clients or results. The transcript comes from live speech-to-text, so silently fix obvious recognition errors.
+- Every piece follows hook → story → value → soft call to action. The hook names the viewer or their problem, or opens a loop, in the very first line.
+- Sell through stories and proof, never through hype. No clickbait in capitals, no fake urgency, no emoji walls.
+- The call to action points to what the creator wants viewers to do${brief?.cta ? ` (${brief.cta}${brief.link ? ` — ${brief.link}` : ""})` : ""}.`,
     messages: [
       {
         role: "user",
-        content: `Theme: ${input.themeTitle}
+        content: `Episode theme: ${input.themeTitle}
 
-Transcript (each turn is something the host said, followed by the guest's answer):
+Transcript (each turn is something the host said, followed by the creator's answer):
 ${transcript}
 
 Produce:
-- titles: 3 YouTube title options, under 70 characters, honest and curiosity-driven, no clickbait in caps.
-- description: 3 short paragraphs in the creator's voice (first person), then one line inviting viewers to subscribe and comment. No hashtags, no chapter list (chapters are added separately).
-- chapters: one per host "opener", "question" or "closing" turn worth a chapter, using its turn number. The first chapter must be turn 0. Titles of 2 to 5 words.
-- shorts: 3 to 5 moments that work as standalone vertical clips: the turn number, the guest's strongest quote (verbatim or lightly cleaned), and a one-line on-screen hook.
-- tags: 8 to 12 YouTube tags.
-- thumbnailText: 2 to 4 punchy words for the thumbnail.
-- summary: 2 to 3 sentences of what the guest shared, written as memory notes for the host of future episodes (facts, stories, open threads worth returning to).`,
+- clips: the 3 to 5 strongest moments to cut as vertical clips (Reels, TikTok, Shorts). Use the turn number whose answer holds the moment; favour answers whose first sentence already works as a hook. For each: "hook" — the first line spoken or shown, under 12 words; "onScreenText" — 3 to 7 words of text overlay for the first 3 seconds; "caption" — 2 to 4 short lines ending with the call to action; "hashtags" — 3 to 5, without the # sign.
+- linkedin: one post of 150 to 250 words. A one-line hook, short paragraphs, one concrete story from the interview, the lesson, a soft call to action. At most 3 hashtags at the end.
+- instagram: "caption" for the episode (hook line, 3 to 5 short lines, call to action), and "carousel" — 5 to 7 slide texts, slide 1 a hook, the last slide the call to action, each under 25 words.
+- youtube: 3 "titles" under 70 characters; a "description" of 3 short paragraphs plus one call-to-action line (no chapter list, no hashtags); "chapters" — one per host "opener", "question" or "closing" turn worth a chapter, using its turn number, the first being turn 0, titles of 2 to 5 words; 8 to 12 "tags"; "thumbnailText" of 2 to 4 punchy words.
+- summary: 2 to 3 sentences of what the creator shared, written as memory notes for the host of future episodes (facts, stories, open threads worth returning to).`,
       },
     ],
   })
   if (response.stop_reason === "refusal" || !response.parsed_output) {
-    throw new Error("no_wrapup")
+    throw new Error("no_content")
   }
   const out = response.parsed_output
   const last = input.turns.length - 1
-  out.chapters = out.chapters.filter((c) => Number.isInteger(c.turn) && c.turn >= 0 && c.turn <= last)
-  out.shorts = out.shorts.filter((s) => Number.isInteger(s.turn) && s.turn >= 0 && s.turn <= last)
+  const valid = (turn: number) => Number.isInteger(turn) && turn >= 0 && turn <= last
+  out.clips = out.clips.filter((c) => valid(c.turn))
+  out.youtube.chapters = out.youtube.chapters.filter((c) => valid(c.turn))
   return out
 }

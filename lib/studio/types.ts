@@ -7,10 +7,13 @@ export type EpisodeLang = Lang | "mix"
 
 export type Bilingual = { fr: string; en: string }
 
+// Vertical is for Reels / TikTok / Shorts, horizontal for YouTube.
+export type Format = "vertical" | "horizontal"
+
 export type Question = {
   id: string
   text: Bilingual
-  // "deep" questions touch personal ground; the setup screen flags them so the
+  // "deep" questions touch personal ground; the plan screen flags them so the
   // guest can leave them out until they're ready.
   depth?: "light" | "deep"
 }
@@ -40,6 +43,7 @@ export type StudioProfile = {
   tagline: Bilingual
   guest: { name: string; bio: Bilingual }
   host: { name: Bilingual; avatar: AvatarLook }
+  // The guest's own recurring series, offered next to the generic topics.
   themes: Theme[]
   // Asked last in every episode unless the guest removes it.
   closingQuestion: Bilingual
@@ -51,6 +55,24 @@ export type StudioSession = {
   voice: "cloned" | "browser"
   ai: boolean
 }
+
+// The written intake the guest fills once: it steers every interview and every
+// post towards their business and what they sell.
+export type Brief = {
+  name: string
+  business: string
+  offer: string
+  audience: string
+  transformation: string
+  proof: string
+  cta: string
+  link: string
+  lang: EpisodeLang
+}
+
+export type PlanQuestion = { id: string; text: Bilingual; kind: "question" | "closing"; deep?: boolean }
+
+export type EpisodePlan = { title: Bilingual; questions: PlanQuestion[] }
 
 export type TurnKind = "opener" | "question" | "followup" | "rephrase" | "transition" | "comfort" | "closing" | "outro"
 
@@ -78,12 +100,17 @@ export type PastEpisode = {
 
 export type HostDecision = { action: "follow_up" | "move_on"; line: string }
 
-export type WrapUp = {
-  titles: string[]
-  description: string
-  chapters: { turn: number; title: string }[]
-  shorts: { turn: number; quote: string; hook: string }[]
-  tags: string[]
-  thumbnailText: string
+// Everything one recording turns into.
+export type ContentPack = {
+  clips: { turn: number; hook: string; onScreenText: string; caption: string; hashtags: string[] }[]
+  linkedin: string
+  instagram: { caption: string; carousel: string[] }
+  youtube: {
+    titles: string[]
+    description: string
+    chapters: { turn: number; title: string }[]
+    tags: string[]
+    thumbnailText: string
+  }
   summary: string
 }

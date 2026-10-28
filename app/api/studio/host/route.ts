@@ -1,23 +1,26 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { aiConfigured, decideFollowUp, rephraseQuestion, writeWrapUp } from "@/lib/studio/ai"
+import { aiConfigured, decideFollowUp, planEpisode, rephraseQuestion, writeContent } from "@/lib/studio/ai"
 import { resolveStudio } from "@/lib/studio/profiles"
-import type { Lang, PastEpisode, Turn } from "@/lib/studio/types"
+import type { Brief, Lang, PastEpisode, Turn } from "@/lib/studio/types"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
-export const maxDuration = 120
+export const maxDuration = 300
 
 type HostBody = {
   token?: unknown
   action?: unknown
   lang?: unknown
   themeTitle?: unknown
+  intent?: unknown
+  note?: unknown
   question?: unknown
   answer?: unknown
   followUpsSoFar?: unknown
   followUpsLeft?: unknown
   past?: unknown
   turns?: unknown
+  brief?: unknown
 }
 
 const str = (v: unknown, max = 20000) => (typeof v === "string" ? v.slice(0, max) : "")
@@ -45,6 +48,22 @@ function turnList(v: unknown): Turn[] {
     }))
 }
 
+function briefOf(v: unknown): Brief | null {
+  if (!v || typeof v !== "object") return null
+  const b = v as Record<string, unknown>
+  return {
+    name: str(b.name, 120),
+    business: str(b.business, 300),
+    offer: str(b.offer, 600),
+    audience: str(b.audience, 600),
+    transformation: str(b.transformation, 600),
+    proof: str(b.proof, 600),
+    cta: str(b.cta, 300),
+    link: str(b.link, 300),
+    lang: b.lang === "en" || b.lang === "mix" ? b.lang : "fr",
+  }
+}
+
 export async function POST(request: NextRequest) {
   let body: HostBody
   try {
@@ -63,13 +82,27 @@ export async function POST(request: NextRequest) {
 
   const lang: Lang = body.lang === "en" ? "en" : "fr"
   const themeTitle = str(body.themeTitle, 200)
+  const brief = briefOf(body.brief)
   const { profile } = studio
 
   try {
     switch (body.action) {
+      case "plan": {
+        const plan = await planEpisode({
+          profile,
+          brief,
+          lang,
+          topicTitle: themeTitle,
+          intent: str(body.intent, 600),
+          note: str(body.note, 2000),
+          past: pastList(body.past),
+        })
+        return NextResponse.json({ ok: true, plan })
+      }
       case "followup": {
         const decision = await decideFollowUp({
           profile,
+          brief,
           lang,
           themeTitle,
           question: str(body.question, 2000),
@@ -81,16 +114,16 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true, decision })
       }
       case "rephrase": {
-        const line = await rephraseQuestion({ profile, lang, themeTitle, question: str(body.question, 2000) })
+        const line = await rephraseQuestion({ profile, brief, lang, themeTitle, question: str(body.question, 2000) })
         return NextResponse.json({ ok: true, line })
       }
-      case "wrapup": {
+      case "content": {
         const turns = turnList(body.turns)
         if (turns.length === 0) {
           return NextResponse.json({ ok: false, error: "empty_episode" }, { status: 400 })
         }
-        const wrapUp = await writeWrapUp({ profile, lang, themeTitle, turns })
-        return NextResponse.json({ ok: true, wrapUp })
+        const content = await writeContent({ profile, brief, lang, themeTitle, turns })
+        return NextResponse.json({ ok: true, content })
       }
       default:
         return NextResponse.json({ ok: false, error: "unknown_action" }, { status: 400 })

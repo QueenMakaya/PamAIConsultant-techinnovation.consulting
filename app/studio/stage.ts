@@ -1,14 +1,20 @@
-import type { AvatarLook } from "@/lib/studio/types"
+import type { AvatarLook, Format } from "@/lib/studio/types"
 
-// The stage is one 1920×1080 canvas: what Pam sees is exactly what gets
-// recorded. Everything here is plain Canvas 2D so it can run every frame.
+// The stage is one canvas — 1920×1080 for YouTube or 1080×1920 for Reels,
+// TikTok and Shorts: what the guest sees is exactly what gets recorded.
+// Everything here is plain Canvas 2D so it can run every frame.
 
 export const STAGE_W = 1920
 export const STAGE_H = 1080
 
+export function stageSize(format: Format): { w: number; h: number } {
+  return format === "vertical" ? { w: STAGE_H, h: STAGE_W } : { w: STAGE_W, h: STAGE_H }
+}
+
 export type HostMode = "idle" | "speaking" | "listening" | "thinking"
 
 export type StageState = {
+  format: Format
   layout: number // 0 = side by side, 1 = guest in focus with host picture-in-picture
   layoutTarget: number
   hostMode: HostMode
@@ -138,20 +144,23 @@ function nameTag(ctx: CanvasRenderingContext2D, s: StageState, r: Rect, name: st
   ctx.fillText(name, tag.x + size * 0.7, tag.y + h / 2 + 1)
 }
 
+// Cover-crops the camera into r. Returns false while there's no picture yet.
+function drawCamera(ctx: CanvasRenderingContext2D, v: HTMLVideoElement | null, r: Rect): boolean {
+  if (!v || v.readyState < 2 || v.videoWidth === 0) return false
+  const scale = Math.max(r.w / v.videoWidth, r.h / v.videoHeight)
+  const w = v.videoWidth * scale
+  const h = v.videoHeight * scale
+  ctx.drawImage(v, r.x + (r.w - w) / 2, r.y + (r.h - h) / 2, w, h)
+  return true
+}
+
 function drawGuestPanel(ctx: CanvasRenderingContext2D, s: StageState, r: Rect) {
   ctx.save()
   roundRect(ctx, r, 28)
   ctx.clip()
   ctx.fillStyle = "#16221C"
   ctx.fillRect(r.x, r.y, r.w, r.h)
-  const v = s.video
-  if (v && v.readyState >= 2 && v.videoWidth > 0) {
-    // Cover-crop the camera into the panel.
-    const scale = Math.max(r.w / v.videoWidth, r.h / v.videoHeight)
-    const w = v.videoWidth * scale
-    const h = v.videoHeight * scale
-    ctx.drawImage(v, r.x + (r.w - w) / 2, r.y + (r.h - h) / 2, w, h)
-  } else {
+  if (!drawCamera(ctx, s.video, r)) {
     ctx.fillStyle = "rgba(250,246,238,0.12)"
     ctx.beginPath()
     ctx.arc(r.x + r.w / 2, r.y + r.h * 0.42, Math.min(r.w, r.h) * 0.16, 0, Math.PI * 2)
@@ -509,8 +518,124 @@ function drawCaption(ctx: CanvasRenderingContext2D, s: StageState) {
   lines.forEach((line, i) => ctx.fillText(line, r.x + 36, r.y + 86 + i * 46))
 }
 
+// ---- Vertical (9:16) ---------------------------------------------------------
+
+// Reels, TikTok and Shorts cover roughly the top 220 px and bottom 400 px with
+// their own interface, so everything that matters stays between those.
+const V_W = STAGE_H
+const V_H = STAGE_W
+const V_BUBBLE = { cx: V_W - 64 - 150, cy: 410, r: 150 }
+
+function drawHostBubble(ctx: CanvasRenderingContext2D, s: StageState, t: number) {
+  const { cx, cy, r } = V_BUBBLE
+  const speak = s.hostMode === "speaking" ? Math.min(1, 0.4 + s.hostLevel * 1.6) : 0
+
+  ctx.save()
+  ctx.shadowColor = "rgba(0,0,0,0.45)"
+  ctx.shadowBlur = 40
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fillStyle = PINE
+  ctx.fill()
+  ctx.restore()
+
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.clip()
+  const g = ctx.createLinearGradient(cx, cy - r, cx, cy + r)
+  g.addColorStop(0, shade(s.look.outfit, -0.5))
+  g.addColorStop(1, shade(s.look.outfit, -0.8))
+  ctx.fillStyle = g
+  ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
+  if (s.portrait) {
+    const img = s.portrait
+    const k = Math.max((r * 2) / img.width, (r * 2) / img.height)
+    ctx.drawImage(img, cx - (img.width * k) / 2, cy - (img.height * k) / 2, img.width * k, img.height * k)
+  } else {
+    drawAvatar(ctx, cx, cy + r, (r * 2) / 400, s.look, s.hostMode, s.hostLevel, s.guestLevel, t)
+  }
+  ctx.restore()
+
+  // Speaking rings.
+  for (let i = 0; i < 2; i++) {
+    ctx.beginPath()
+    ctx.arc(cx, cy, r + 6 + i * 14 + speak * 18, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(242,193,78,${(i === 0 ? 0.9 : 0.4) * (0.25 + speak * 0.75)})`
+    ctx.lineWidth = i === 0 ? 6 : 3
+    ctx.stroke()
+  }
+
+  ctx.font = `600 28px ${s.fonts.body}`
+  const w = ctx.measureText(s.hostName).width + 40
+  const tag: Rect = { x: cx - w / 2, y: cy + r + 26, w, h: 52 }
+  roundRect(ctx, tag, 26)
+  ctx.fillStyle = "rgba(14,20,17,0.78)"
+  ctx.fill()
+  ctx.fillStyle = IVORY
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText(s.hostName, cx, tag.y + 27)
+}
+
+function drawVertical(ctx: CanvasRenderingContext2D, s: StageState, t: number) {
+  const full: Rect = { x: 0, y: 0, w: V_W, h: V_H }
+  ctx.fillStyle = "#16221C"
+  ctx.fillRect(0, 0, V_W, V_H)
+  drawCamera(ctx, s.video, full)
+
+  // Soft shades top and bottom keep the text readable over any background.
+  const top = ctx.createLinearGradient(0, 0, 0, 640)
+  top.addColorStop(0, "rgba(0,0,0,0.55)")
+  top.addColorStop(1, "rgba(0,0,0,0)")
+  ctx.fillStyle = top
+  ctx.fillRect(0, 0, V_W, 640)
+  const bottom = ctx.createLinearGradient(0, V_H - 900, 0, V_H)
+  bottom.addColorStop(0, "rgba(0,0,0,0)")
+  bottom.addColorStop(1, "rgba(0,0,0,0.6)")
+  ctx.fillStyle = bottom
+  ctx.fillRect(0, V_H - 900, V_W, 900)
+
+  ctx.fillStyle = IVORY
+  ctx.font = `600 40px ${s.fonts.display}`
+  ctx.textAlign = "left"
+  ctx.textBaseline = "alphabetic"
+  ctx.fillText(s.showName, 64, 290)
+  if (s.themeTitle) {
+    ctx.fillStyle = "#F2C14E"
+    ctx.font = `700 24px ${s.fonts.body}`
+    ctx.fillText(s.themeTitle.toUpperCase(), 64, 336)
+  }
+
+  drawHostBubble(ctx, s, t)
+
+  if (s.caption) {
+    ctx.font = `600 46px ${s.fonts.body}`
+    const lines = wrapLines(ctx, s.caption, V_W - 200, 4)
+    const h = 70 + lines.length * 60
+    const r: Rect = { x: 64, y: V_H - 420 - h, w: V_W - 128, h }
+    roundRect(ctx, r, 32)
+    ctx.fillStyle = "rgba(14,20,17,0.84)"
+    ctx.fill()
+    ctx.fillStyle = "#F2C14E"
+    ctx.font = `700 24px ${s.fonts.body}`
+    ctx.textAlign = "left"
+    ctx.textBaseline = "alphabetic"
+    ctx.fillText(s.hostName.toUpperCase(), r.x + 36, r.y + 48)
+    ctx.fillStyle = IVORY
+    ctx.font = `600 46px ${s.fonts.body}`
+    lines.forEach((line, i) => ctx.fillText(line, r.x + 36, r.y + 106 + i * 60))
+  }
+}
+
 export function drawStage(ctx: CanvasRenderingContext2D, s: StageState, t: number, dt: number) {
-  // Smooth the layout towards its target (~0.6 s) and the levels a little.
+  if (s.format === "vertical") {
+    ctx.save()
+    drawVertical(ctx, s, t)
+    ctx.restore()
+    return
+  }
+  // Smooth the layout towards its target (~0.6 s).
   const step = Math.min(1, dt * 3.2)
   s.layout += (s.layoutTarget - s.layout) * step
   const k = ease(Math.max(0, Math.min(1, s.layout)))

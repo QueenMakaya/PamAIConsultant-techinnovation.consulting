@@ -20,7 +20,7 @@ export default function StudioLayout({ children }: { children: ReactNode }) {
   // portfolio nav/footer.
   return (
     <div
-      className={`${fraunces.variable} ${hanken.variable} min-h-dvh w-full bg-[#0E1411] text-[#FAF6EE]`}
+      className={`${fraunces.variable} ${hanken.variable} min-h-dvh w-full bg-[#0B0F0D] text-[#F7F3EA] antialiased`}
       style={{ fontFamily: "var(--font-hanken), system-ui, sans-serif" }}
     >
       {children}

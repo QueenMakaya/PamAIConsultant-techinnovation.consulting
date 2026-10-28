@@ -25,7 +25,7 @@ export function resolveStudio(token: unknown): ResolvedStudio | null {
   for (const studio of STUDIOS) {
     const expected = process.env[studio.tokenEnv]?.trim()
     if (expected && given === expected) {
-      const voiceId = process.env[studio.voiceIdEnv]
+      const voiceId = process.env[studio.voiceIdEnv]?.trim()
       return {
         profile: studio.profile,
         voiceId: voiceId && process.env.ELEVENLABS_API_KEY ? voiceId : null,

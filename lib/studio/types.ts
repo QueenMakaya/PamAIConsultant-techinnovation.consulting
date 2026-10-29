@@ -27,6 +27,9 @@ export type Theme = {
 
 export type HairStyle = "afro" | "puff" | "braids" | "short" | "wrap"
 
+// How AVA appears: the brand orb, the guest's own photo, or the drawn illustration.
+export type AvatarStyle = "orb" | "photo" | "illustration"
+
 export type AvatarLook = {
   skin: string
   hair: string

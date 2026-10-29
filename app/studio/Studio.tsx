@@ -6,6 +6,7 @@ import type { LearnedMove } from "@/lib/studio/craft"
 import { TOPICS, fillBrief } from "@/lib/studio/topics"
 import type {
   AvatarLook,
+  AvatarStyle,
   Bilingual,
   Brief,
   ContentPack,
@@ -33,7 +34,9 @@ import { Button, display, inputCls } from "./ui"
 
 type Screen = "loading" | "gate" | "welcome" | "brief" | "home" | "topic" | "plan" | "camera" | "review"
 
-type Settings = { uiLang: Lang; host: HostSettings; look: AvatarLook; format: Format; filter: FilterSettings }
+type Settings = { uiLang: Lang; host: HostSettings; look: AvatarLook; avatarStyle: AvatarStyle; format: Format; filter: FilterSettings }
+
+const PATIENCE_MS: Record<HostSettings["patience"], number> = { fast: 2000, normal: 3000, patient: 4500 }
 
 function load<T>(key: string): T | null {
   try {
@@ -129,8 +132,6 @@ export default function Studio() {
   const wakeRef = useRef<{ release(): Promise<void> } | null>(null)
   const stage = useRef<StageState>({
     format: "vertical",
-    layout: 0,
-    layoutTarget: 0,
     hostMode: "idle",
     hostLevel: 0,
     guestLevel: 0,
@@ -139,11 +140,12 @@ export default function Studio() {
     themeTitle: "",
     hostName: "",
     guestName: "",
-    look: { skin: "#8D5524", hair: "#1B1410", hairStyle: "puff", outfit: "#B5822B", accent: "#F2C14E", glasses: false, earrings: true },
+    avatarStyle: "orb",
+    look: { skin: "#8D5524", hair: "#1B1410", hairStyle: "puff", outfit: "#B5822B", accent: "var(--ava-crimson)", glasses: false, earrings: true },
     portrait: null,
     video: null,
     cameraFrame: null,
-    fonts: { display: "Georgia, serif", body: "system-ui, sans-serif" },
+    fonts: { display: "Georgia, serif", body: "system-ui, sans-serif", mono: "ui-monospace, monospace" },
   })
 
   const profile = session?.profile
@@ -203,12 +205,14 @@ export default function Studio() {
             followUps: s.ai ? 1 : 0,
             autoAdvance: 0,
             captions: true,
-            autoLayout: true,
             practice: false,
             nudges: true,
+            handsFree: true,
+            patience: "normal",
             ...stored?.host,
           },
           look: { ...s.profile.host.avatar, ...stored?.look },
+          avatarStyle: stored?.avatarStyle ?? "orb",
           format: stored?.format ?? "vertical",
           filter: { ...DEFAULT_FILTER, ...stored?.filter },
         }
@@ -268,6 +272,7 @@ export default function Studio() {
     s.hostName = profile.host.name[showLang]
     s.guestName = guestName
     s.look = settings.look
+    s.avatarStyle = settings.avatarStyle
   }, [profile, settings, format, showLang, topicTitle, guestName])
 
   useEffect(() => {
@@ -287,10 +292,12 @@ export default function Studio() {
     if (!el) return
     const css = getComputedStyle(el)
     const d = css.getPropertyValue("--font-fraunces").trim()
-    const b = css.getPropertyValue("--font-hanken").trim()
+    const b = css.getPropertyValue("--font-inter").trim()
+    const m = css.getPropertyValue("--font-mono").trim()
     stage.current.fonts = {
       display: d ? `${d}, Georgia, serif` : "Georgia, serif",
       body: b ? `${b}, system-ui, sans-serif` : "system-ui, sans-serif",
+      mono: m ? `${m}, ui-monospace, monospace` : "ui-monospace, monospace",
     }
   }, [screen])
 
@@ -388,7 +395,7 @@ export default function Studio() {
         s.cameraFrame = beautyRef.current.process(s.video, filterRef.current)
       }
       const ctx = canvasRef.current?.getContext("2d")
-      if (ctx) drawStage(ctx, s, (now - start) / 1000, dt)
+      if (ctx) drawStage(ctx, s, (now - start) / 1000)
       const iv = interviewRef.current
       if (iv) {
         iv.tick(now)
@@ -537,8 +544,6 @@ export default function Studio() {
 
     const audio = ensureAudio()
     await audio.resume()
-    stage.current.layout = 0
-    stage.current.layoutTarget = 0
     setView({ ...IDLE_VIEW, total: items.length })
     setElapsed(0)
     setRecordedFormat(format)
@@ -550,7 +555,6 @@ export default function Studio() {
         followUps: ai ? settings.host.followUps : 0,
         autoAdvance: settings.host.autoAdvance,
         captions: settings.host.captions,
-        autoLayout: settings.host.autoLayout,
         practice: settings.host.practice,
         ai,
         themeTitle: topicTitle,
@@ -563,6 +567,8 @@ export default function Studio() {
         brief,
         past: episodes,
         nudges: settings.host.nudges,
+        handsFree: settings.host.handsFree,
+        patienceMs: PATIENCE_MS[settings.host.patience] ?? 3000,
         learned,
       },
       {
@@ -710,10 +716,10 @@ export default function Studio() {
               if (keyInput.trim()) router.replace(`/studio?token=${encodeURIComponent(keyInput.trim())}`)
             }}
           >
-            <h1 className="text-3xl text-[#F7F3EA]" style={display}>
+            <h1 className="text-3xl text-[var(--ava-ink)]" style={display}>
               {ui.fr.gateTitle}
             </h1>
-            <p className="mb-6 mt-2 text-sm text-[#F7F3EA]/60">
+            <p className="mb-6 mt-2 text-sm text-[var(--ava-ink)]/60">
               {ui.fr.gateText} · {ui.en.gateText}
             </p>
             <input
@@ -725,7 +731,7 @@ export default function Studio() {
               autoFocus
             />
             {gateError && (
-              <p className="mt-3 text-sm text-[#FF8A80]">
+              <p className="mt-3 text-sm text-[var(--ava-crimson-deep)]">
                 {gateError === "wrong" ? `${ui.fr.gateWrong} · ${ui.en.gateWrong}` : `${ui.fr.gateError} · ${ui.en.gateError}`}
               </p>
             )}
@@ -734,7 +740,7 @@ export default function Studio() {
             </Button>
           </form>
         ) : (
-          <p className="animate-pulse text-lg text-[#F7F3EA]/60" style={display}>
+          <p className="animate-pulse text-lg text-[var(--ava-ink)]/60" style={display}>
             {ui.fr.loading}
           </p>
         )}
@@ -751,7 +757,9 @@ export default function Studio() {
     <div ref={rootRef}>
       {hiddenVideo}
 
-      {screen === "welcome" && <Welcome t={t} look={settings.look} portrait={portrait} onStart={() => setScreen("brief")} />}
+      {screen === "welcome" && (
+        <Welcome t={t} look={settings.look} portrait={portrait} avatarStyle={settings.avatarStyle} onStart={() => setScreen("brief")} />
+      )}
 
       {screen === "brief" && (
         <BriefForm
@@ -773,6 +781,7 @@ export default function Studio() {
           name={guestName}
           look={settings.look}
           portrait={portrait}
+          avatarStyle={settings.avatarStyle}
           episodes={episodes}
           showName={profile.showName[uiLang]}
           onNew={() => {
@@ -862,6 +871,8 @@ export default function Studio() {
           filter={settings.filter}
           onFilter={(f) => setSettings((s) => (s ? { ...s, filter: f } : s))}
           filterSupported={filterSupported}
+          handsFree={settings.host.handsFree}
+          captions={settings.host.captions}
         />
       )}
 
@@ -893,6 +904,8 @@ export default function Studio() {
         onHost={updateHost}
         look={settings.look}
         onLook={updateLook}
+        avatarStyle={settings.avatarStyle}
+        onAvatarStyle={(st) => setSettings((x) => (x ? { ...x, avatarStyle: st } : x))}
         portrait={portrait}
         onPortrait={onPortrait}
         onClearPortrait={() => {

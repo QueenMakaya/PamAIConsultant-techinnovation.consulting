@@ -1,13 +1,13 @@
 "use client"
 
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react"
-import { ArrowRight, Camera as CameraIcon, Coffee, MoreHorizontal, Pause, Play, Repeat, Settings, SkipForward, Sparkles, Square, SwitchCamera, Wand2, X } from "lucide-react"
+import { ArrowRight, Camera as CameraIcon, Check, Coffee, MoreHorizontal, Pause, Play, Repeat, Settings, SkipForward, Sparkles, Square, SwitchCamera, Wand2, X } from "lucide-react"
 import type { Format } from "@/lib/studio/types"
 import { FILTER_PRESETS, filterActive, type FilterSettings } from "../beauty"
 import { fill, type UiCopy } from "../copy"
 import type { InterviewView } from "../interview"
 import { stageSize } from "../stage"
-import { Button, IconButton, Segmented, Sheet, cx, display } from "../ui"
+import { AvaMark, Button, IconButton, Segmented, Sheet, cx, display, mono } from "../ui"
 
 export type CameraPhase = "ready" | "countdown" | "live"
 
@@ -66,6 +66,8 @@ export default function CameraScreen({
   filter,
   onFilter,
   filterSupported,
+  handsFree,
+  captions,
 }: {
   t: UiCopy
   format: Format
@@ -96,6 +98,8 @@ export default function CameraScreen({
   filter: FilterSettings
   onFilter: (f: FilterSettings) => void
   filterSupported: boolean
+  handsFree: boolean
+  captions: boolean
 }) {
   const { w, h } = stageSize(format)
   const fit = useFit(w / h)
@@ -134,7 +138,7 @@ export default function CameraScreen({
 
   const heard = `${view.heard} ${view.interim}`.trim()
   const heardTail = heard.length > 160 ? `…${heard.slice(-160)}` : heard
-  const showPrompt = live && view.hostLine && (view.mode !== "speaking" || view.paused)
+  const showAva = live && !!view.hostLine && (view.mode === "thinking" || view.mode !== "speaking" || !captions)
 
   const act = (fn: () => void) => () => {
     setMore(false)
@@ -142,7 +146,7 @@ export default function CameraScreen({
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-black text-[#F7F3EA]">
+    <div className="fixed inset-0 flex flex-col bg-black text-[#FFF8F5]">
       {/* Top bar */}
       <div className="relative z-10 flex items-center justify-between gap-3 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <IconButton label={t.close} onClick={onClose}>
@@ -162,13 +166,13 @@ export default function CameraScreen({
                 {practice ? t.practiceBadge : view.paused ? t.paused : clock(elapsed)}
               </span>
               {total > 0 && (
-                <span className="rounded-full bg-black/40 px-3 py-2 text-sm tabular-nums text-[#F7F3EA]/80 backdrop-blur-md">
+                <span className="rounded-full bg-black/40 px-3 py-2 text-sm tabular-nums text-[#FFF8F5]/80 backdrop-blur-md">
                   {fill(t.questionOf, { i: Math.min(view.index + 1, total), n: total })}
                 </span>
               )}
             </>
           ) : (
-            <span className="rounded-full bg-black/40 px-3.5 py-2 text-sm text-[#F7F3EA]/80 backdrop-blur-md">
+            <span className="rounded-full bg-black/40 px-3.5 py-2 text-sm text-[#FFF8F5]/80 backdrop-blur-md">
               {format === "vertical" ? "9:16" : "16:9"}
             </span>
           )}
@@ -179,7 +183,7 @@ export default function CameraScreen({
             <IconButton
               label={t.filter}
               onClick={() => setFilterOpen(true)}
-              className={filterActive(filter) ? "bg-[#F2C14E] text-[#14110A] hover:bg-[#F6D06F]" : undefined}
+              className={filterActive(filter) ? "bg-gradient-to-br from-[var(--ava-coral)] to-[var(--ava-crimson)] text-white hover:from-[var(--ava-coral)]" : undefined}
             >
               <Sparkles size={19} />
             </IconButton>
@@ -200,55 +204,61 @@ export default function CameraScreen({
 
       {/* Stage */}
       <div ref={fit.ref} className="relative flex min-h-0 flex-1 items-center justify-center px-3">
-        <div className="relative overflow-hidden rounded-[22px] bg-[#0E1411]" style={{ width: fit.size.w, height: fit.size.h }}>
+        <div className="relative overflow-hidden rounded-[22px] bg-[var(--ava-ink)]" style={{ width: fit.size.w, height: fit.size.h }}>
           <canvas ref={canvasRef} width={w} height={h} className="block h-full w-full" />
 
-          {/* Teleprompter: what to answer, never in the recording. In 16:9 it sits
-              near the lens; in 9:16 the host bubble owns the top, so the question
-              and what the host hears share one card at the bottom. */}
-          {format === "horizontal" && showPrompt && (
-            <div className="absolute inset-x-3 top-3 rounded-2xl bg-black/55 px-4 py-3 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-300">
-              <p className="text-[15px] font-medium leading-snug sm:text-lg" style={display}>
-                {view.hostLine}
-              </p>
-            </div>
-          )}
-
-          {(listening || (format === "vertical" && showPrompt)) && (
-            <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-black/60 px-4 py-3 backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {format === "vertical" && showPrompt && (
-                <p className="text-[15px] font-medium leading-snug" style={display}>
-                  {view.hostLine}
-                </p>
+          {/* The conversation, as chat bubbles over the preview (never in the
+              recording): AVA's latest line, then what AVA hears you say. While
+              AVA speaks with captions on, the recorded caption shows her line. */}
+          {live && (showAva || listening) && (
+            <div className={cx("absolute bottom-3 left-3 flex flex-col gap-2", format === "vertical" ? "right-3" : "w-[min(560px,70%)]")}>
+              {showAva && (
+                <div className="flex items-end gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <AvaMark size={28} online={false} />
+                  <div className="max-w-[88%] rounded-[20px] rounded-bl-md bg-[var(--ava-cream)]/95 px-4 py-2.5 text-[var(--ava-ink)] shadow-lg">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ava-crimson)]" style={mono}>
+                      AVA
+                    </p>
+                    {view.mode === "thinking" ? (
+                      <span className="mt-1 flex gap-1" aria-label={t.stateThinking}>
+                        {[0, 1, 2].map((i) => (
+                          <span key={i} className="h-2 w-2 animate-bounce rounded-full bg-[var(--ava-crimson)]" style={{ animationDelay: `${i * 120}ms` }} />
+                        ))}
+                      </span>
+                    ) : (
+                      <p className="mt-0.5 text-[15px] leading-snug" style={display}>
+                        {view.hostLine}
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
               {listening && (
-                <p
-                  className={cx(
-                    "text-sm leading-snug text-[#F7F3EA]/75",
-                    format === "vertical" && showPrompt && "mt-2 border-t border-white/10 pt-2 text-[13px]",
-                  )}
-                >
-                  {heardTail || <span className="text-[#F7F3EA]/45">{t.heardEmpty}</span>}
-                </p>
+                <div className="ml-auto max-w-[85%] rounded-[20px] rounded-br-md bg-black/55 px-4 py-2.5 text-white backdrop-blur-md animate-in fade-in">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50" style={mono}>
+                    {t.you}
+                  </p>
+                  <p className="mt-0.5 text-sm leading-snug text-white/90">{heardTail || <span className="italic text-white/50">{t.heardEmpty}</span>}</p>
+                </div>
               )}
             </div>
           )}
 
           {phase === "countdown" && countdown > 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-              <span key={countdown} className="text-[8rem] leading-none text-[#F7F3EA] animate-in zoom-in-50 fade-in duration-500" style={display}>
+              <span key={countdown} className="text-[8rem] leading-none text-[#FFF8F5] animate-in zoom-in-50 fade-in duration-500" style={display}>
                 {countdown}
               </span>
             </div>
           )}
 
           {view.minute && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0B0F0D]/85 p-6 text-center backdrop-blur-sm animate-in fade-in">
-              <Coffee size={28} className="text-[#F2C14E]" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[var(--ava-ink)]/85 p-6 text-center backdrop-blur-sm animate-in fade-in">
+              <Coffee size={28} className="text-[var(--ava-coral)]" />
               <p className="text-3xl" style={display}>
                 {t.minuteTitle}
               </p>
-              <p className="max-w-xs text-[#F7F3EA]/70">{t.minuteText}</p>
+              <p className="max-w-xs text-[#FFF8F5]/70">{t.minuteText}</p>
               <Button size="lg" onClick={onPause}>
                 <Play size={18} />
                 {t.resume}
@@ -257,14 +267,14 @@ export default function CameraScreen({
           )}
 
           {!devicesOn && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0B0F0D] p-8 text-center">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.07] text-[#F2C14E]">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[var(--ava-ink)] p-8 text-center">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.07] text-[var(--ava-coral)]">
                 <CameraIcon size={28} />
               </span>
               <p className="text-2xl" style={display}>
                 {t.permTitle}
               </p>
-              <p className="max-w-xs text-sm leading-relaxed text-[#F7F3EA]/60">{t.permText}</p>
+              <p className="max-w-xs text-sm leading-relaxed text-[#FFF8F5]/60">{t.permText}</p>
               {deviceError && <p className="max-w-xs text-sm text-[#FF8A80]">{t.cameraError}</p>}
               <Button size="lg" onClick={onAllow}>
                 {t.permAllow}
@@ -279,16 +289,16 @@ export default function CameraScreen({
         {!live && phase !== "countdown" && devicesOn && (
           <div className="mb-3 text-center">
             <p className="font-semibold">{t.tapToStart}</p>
-            <p className="text-xs text-[#F7F3EA]/50">{fill(t.readyMeta, { n: total })}</p>
+            <p className="text-xs text-[#FFF8F5]/50">{fill(t.readyMeta, { n: total })}</p>
             {warnings.map((wn) => (
-              <p key={wn} className="mx-auto mt-2 max-w-sm text-xs text-[#F2C14E]/90">
+              <p key={wn} className="mx-auto mt-2 max-w-sm text-xs text-[var(--ava-coral)]">
                 {wn}
               </p>
             ))}
           </div>
         )}
         {live && (
-          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#F7F3EA]/55">{stateLabel}</p>
+          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#FFF8F5]/55">{stateLabel}</p>
         )}
 
         <div className="mx-auto grid max-w-sm grid-cols-3 items-center">
@@ -298,7 +308,7 @@ export default function CameraScreen({
                 type="button"
                 onClick={onEnd}
                 aria-label={t.end}
-                className="flex h-14 w-14 flex-col items-center justify-center rounded-full bg-white/10 text-[#F7F3EA] backdrop-blur-md transition hover:bg-white/15 active:scale-95"
+                className="flex h-14 w-14 flex-col items-center justify-center rounded-full bg-white/10 text-[#FFF8F5] backdrop-blur-md transition hover:bg-white/15 active:scale-95"
               >
                 <Square size={18} fill="currentColor" />
               </button>
@@ -322,7 +332,7 @@ export default function CameraScreen({
                 type="button"
                 onClick={onPause}
                 aria-label={t.resume}
-                className="flex h-[84px] w-[84px] items-center justify-center rounded-full bg-[#F7F3EA] text-[#14110A] transition active:scale-95"
+                className="flex h-[84px] w-[84px] items-center justify-center rounded-full bg-[var(--ava-cream)] text-[var(--ava-ink)] transition active:scale-95"
               >
                 <Play size={30} fill="currentColor" />
               </button>
@@ -332,9 +342,9 @@ export default function CameraScreen({
                 onClick={onNext}
                 disabled={!listening}
                 aria-label={t.next}
-                className="relative flex h-[84px] w-[84px] items-center justify-center rounded-full bg-[#F2C14E] text-[#14110A] shadow-[0_10px_40px_-10px_rgba(242,193,78,0.8)] transition active:scale-95 disabled:bg-white/15 disabled:text-[#F7F3EA]/60 disabled:shadow-none"
+                className="relative flex h-[84px] w-[84px] items-center justify-center rounded-full bg-gradient-to-br from-[var(--ava-coral)] to-[var(--ava-crimson)] text-white shadow-[0_10px_40px_-10px_rgba(232,56,79,0.85)] transition active:scale-95 disabled:from-white/15 disabled:to-white/15 disabled:text-white/60 disabled:shadow-none"
               >
-                <span ref={ringRef} className="absolute -inset-1.5 rounded-full ring-2 ring-[#F2C14E]/70" />
+                <span ref={ringRef} className="absolute -inset-1.5 rounded-full ring-2 ring-[var(--ava-coral)]/70" />
                 {view.mode === "speaking" || view.mode === "thinking" ? (
                   <span className="flex items-end gap-1" aria-hidden>
                     {[0, 1, 2].map((i) => (
@@ -342,7 +352,7 @@ export default function CameraScreen({
                     ))}
                   </span>
                 ) : (
-                  <ArrowRight size={32} />
+                  handsFree ? <Check size={32} /> : <ArrowRight size={32} />
                 )}
               </button>
             )}
@@ -361,17 +371,18 @@ export default function CameraScreen({
             )}
           </div>
         </div>
-        {live && <p className="mt-2 text-center text-sm font-semibold">{view.paused ? t.resume : t.next}</p>}
+        {live && <p className="mt-2 text-center text-sm font-semibold">{view.paused ? t.resume : handsFree ? t.done2 : t.next}</p>}
       </div>
 
-      <Sheet open={filterOpen} onClose={() => setFilterOpen(false)} title={t.filterTitle} closeLabel={t.close}>
+      <Sheet dark open={filterOpen} onClose={() => setFilterOpen(false)} title={t.filterTitle} closeLabel={t.close}>
         {!filterSupported ? (
-          <p className="text-sm text-[#F7F3EA]/60">{t.filterNoGpu}</p>
+          <p className="text-sm text-[#FFF8F5]/60">{t.filterNoGpu}</p>
         ) : (
           <div className="space-y-6">
-            <p className="text-sm leading-relaxed text-[#F7F3EA]/60">{t.filterHint}</p>
+            <p className="text-sm leading-relaxed text-[#FFF8F5]/60">{t.filterHint}</p>
             <Segmented
               full
+              dark
               value={filter.preset === "custom" ? ("" as FilterSettings["preset"]) : filter.preset}
               options={[
                 { value: "off", label: t.filterOff },
@@ -388,9 +399,9 @@ export default function CameraScreen({
               ] as const
             ).map(([key, label]) => (
               <label key={key} className="block">
-                <span className="mb-2 flex justify-between text-sm text-[#F7F3EA]/85">
+                <span className="mb-2 flex justify-between text-sm text-[#FFF8F5]/85">
                   {label}
-                  <span className="tabular-nums text-[#F7F3EA]/45">{Math.round(filter[key] * 100)}</span>
+                  <span className="tabular-nums text-[#FFF8F5]/45">{Math.round(filter[key] * 100)}</span>
                 </span>
                 <input
                   type="range"
@@ -398,7 +409,7 @@ export default function CameraScreen({
                   max={100}
                   value={Math.round(filter[key] * 100)}
                   onChange={(e) => onFilter({ ...filter, preset: "custom", [key]: Number(e.target.value) / 100 })}
-                  className="h-11 w-full cursor-pointer accent-[#F2C14E]"
+                  className="h-11 w-full cursor-pointer accent-[var(--ava-coral)]"
                 />
               </label>
             ))}
@@ -406,7 +417,7 @@ export default function CameraScreen({
         )}
       </Sheet>
 
-      <Sheet open={more} onClose={() => setMore(false)} title={t.more} closeLabel={t.close}>
+      <Sheet dark open={more} onClose={() => setMore(false)} title={t.more} closeLabel={t.close}>
         <div className="grid gap-2">
           {[
             { icon: <SkipForward size={20} />, label: t.skip, fn: onSkip, disabled: !listening },
@@ -422,7 +433,7 @@ export default function CameraScreen({
               onClick={act(row.fn)}
               className="flex min-h-14 items-center gap-4 rounded-2xl bg-white/[0.05] px-5 text-left font-semibold transition hover:bg-white/[0.09] disabled:opacity-35"
             >
-              <span className="text-[#F2C14E]">{row.icon}</span>
+              <span className="text-[var(--ava-coral)]">{row.icon}</span>
               {row.label}
             </button>
           ))}

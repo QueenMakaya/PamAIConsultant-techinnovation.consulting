@@ -465,7 +465,7 @@ export const pamProfile: StudioProfile = {
     },
   },
   host: {
-    name: { fr: "L'autre Pam", en: "The Other Pam" },
+    name: { fr: "AVA", en: "AVA" },
     avatar: {
       skin: "#8D5524",
       hair: "#1B1410",

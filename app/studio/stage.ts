@@ -1,8 +1,9 @@
-import type { AvatarLook, Format } from "@/lib/studio/types"
+import type { AvatarLook, AvatarStyle, Format } from "@/lib/studio/types"
 
 // The stage is one canvas — 1920×1080 for YouTube or 1080×1920 for Reels,
 // TikTok and Shorts: what the guest sees is exactly what gets recorded.
-// Everything here is plain Canvas 2D so it can run every frame.
+// The guest fills the frame; AVA lives in a small bubble in the corner and
+// her lines appear as a chat bubble, like a conversation.
 
 export const STAGE_W = 1920
 export const STAGE_H = 1080
@@ -15,8 +16,6 @@ export type HostMode = "idle" | "speaking" | "listening" | "thinking"
 
 export type StageState = {
   format: Format
-  layout: number // 0 = side by side, 1 = guest in focus with host picture-in-picture
-  layoutTarget: number
   hostMode: HostMode
   hostLevel: number // 0..1, smoothed voice level
   guestLevel: number
@@ -25,33 +24,26 @@ export type StageState = {
   themeTitle: string
   hostName: string
   guestName: string
+  avatarStyle: AvatarStyle
   look: AvatarLook
   portrait: HTMLImageElement | null
   video: HTMLVideoElement | null
   // The camera after the confidence filter, when it's on.
   cameraFrame: HTMLCanvasElement | null
-  fonts: { display: string; body: string }
+  fonts: { display: string; body: string; mono: string }
 }
 
-const INK = "#0E1411"
-const IVORY = "#FAF6EE"
-const PINE = "#003219"
+// AVA brand.
+export const AVA = {
+  coral: "#F06A6A",
+  crimson: "#E8384F",
+  ink: "#1E1F21",
+  cream: "#FFF8F5",
+  blush: "#FFE5E0",
+  online: "#34D399",
+}
 
 type Rect = { x: number; y: number; w: number; h: number }
-
-const SPLIT_GUEST: Rect = { x: 80, y: 150, w: 860, h: 760 }
-const SPLIT_HOST: Rect = { x: 980, y: 150, w: 860, h: 760 }
-const FOCUS_GUEST: Rect = { x: 80, y: 150, w: 1760, h: 760 }
-const FOCUS_HOST: Rect = { x: 1470, y: 590, w: 340, h: 290 }
-
-const lerp = (a: number, b: number, t: number) => a + (b - a) * t
-const ease = (t: number) => t * t * (3 - 2 * t)
-const lerpRect = (a: Rect, b: Rect, t: number): Rect => ({
-  x: lerp(a.x, b.x, t),
-  y: lerp(a.y, b.y, t),
-  w: lerp(a.w, b.w, t),
-  h: lerp(a.h, b.h, t),
-})
 
 function roundRect(ctx: CanvasRenderingContext2D, r: Rect, radius: number) {
   ctx.beginPath()
@@ -90,62 +82,6 @@ function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number
   return kept
 }
 
-function drawBackdrop(ctx: CanvasRenderingContext2D, s: StageState, t: number) {
-  const g = ctx.createLinearGradient(0, 0, STAGE_W, STAGE_H)
-  g.addColorStop(0, "#0B1A13")
-  g.addColorStop(1, "#1A140C")
-  ctx.fillStyle = g
-  ctx.fillRect(0, 0, STAGE_W, STAGE_H)
-
-  // Two soft "studio lights" drifting slowly.
-  const glow = (x: number, y: number, r: number, color: string) => {
-    const rg = ctx.createRadialGradient(x, y, 0, x, y, r)
-    rg.addColorStop(0, color)
-    rg.addColorStop(1, "rgba(0,0,0,0)")
-    ctx.fillStyle = rg
-    ctx.fillRect(x - r, y - r, r * 2, r * 2)
-  }
-  glow(360 + Math.sin(t * 0.13) * 60, 220, 700, "rgba(181,130,43,0.18)")
-  glow(1600 + Math.cos(t * 0.11) * 60, 900, 760, "rgba(0,90,52,0.28)")
-
-  ctx.fillStyle = IVORY
-  ctx.font = `600 46px ${s.fonts.display}`
-  ctx.textBaseline = "middle"
-  ctx.textAlign = "left"
-  ctx.fillText(s.showName, 84, 82)
-
-  if (s.themeTitle) {
-    ctx.font = `600 26px ${s.fonts.body}`
-    const label = s.themeTitle.toUpperCase()
-    const w = ctx.measureText(label).width + 48
-    const chip: Rect = { x: STAGE_W - 84 - w, y: 58, w, h: 48 }
-    roundRect(ctx, chip, 24)
-    ctx.fillStyle = "rgba(242,193,78,0.14)"
-    ctx.fill()
-    ctx.strokeStyle = "rgba(242,193,78,0.55)"
-    ctx.lineWidth = 2
-    ctx.stroke()
-    ctx.fillStyle = "#F2C14E"
-    ctx.textAlign = "center"
-    ctx.fillText(label, chip.x + w / 2, chip.y + 25)
-  }
-}
-
-function nameTag(ctx: CanvasRenderingContext2D, s: StageState, r: Rect, name: string, small: boolean) {
-  const size = small ? 20 : 28
-  ctx.font = `600 ${size}px ${s.fonts.body}`
-  const w = ctx.measureText(name).width + size * 1.4
-  const h = size * 1.9
-  const tag: Rect = { x: r.x + 20, y: r.y + r.h - h - 20, w, h }
-  roundRect(ctx, tag, h / 2)
-  ctx.fillStyle = "rgba(14,20,17,0.72)"
-  ctx.fill()
-  ctx.fillStyle = IVORY
-  ctx.textAlign = "left"
-  ctx.textBaseline = "middle"
-  ctx.fillText(name, tag.x + size * 0.7, tag.y + h / 2 + 1)
-}
-
 // Cover-crops the camera (filtered when the filter is on) into r. Returns
 // false while there's no picture yet.
 function drawCamera(ctx: CanvasRenderingContext2D, s: StageState, r: Rect): boolean {
@@ -161,102 +97,237 @@ function drawCamera(ctx: CanvasRenderingContext2D, s: StageState, r: Rect): bool
   return true
 }
 
-function drawGuestPanel(ctx: CanvasRenderingContext2D, s: StageState, r: Rect) {
-  ctx.save()
-  roundRect(ctx, r, 28)
-  ctx.clip()
-  ctx.fillStyle = "#16221C"
-  ctx.fillRect(r.x, r.y, r.w, r.h)
-  if (!drawCamera(ctx, s, r)) {
-    ctx.fillStyle = "rgba(250,246,238,0.12)"
-    ctx.beginPath()
-    ctx.arc(r.x + r.w / 2, r.y + r.h * 0.42, Math.min(r.w, r.h) * 0.16, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.beginPath()
-    ctx.ellipse(r.x + r.w / 2, r.y + r.h * 0.92, Math.min(r.w, r.h) * 0.32, Math.min(r.w, r.h) * 0.26, 0, Math.PI, 0)
-    ctx.fill()
-  }
-  ctx.restore()
-
-  // A warm rim lights up while the guest is talking.
-  const talk = Math.min(1, s.guestLevel * 2.2)
-  roundRect(ctx, r, 28)
-  ctx.lineWidth = 3 + talk * 5
-  ctx.strokeStyle = `rgba(242,193,78,${0.18 + talk * 0.6})`
-  ctx.stroke()
-  nameTag(ctx, s, r, s.guestName, false)
-}
-
-function drawHostPanel(ctx: CanvasRenderingContext2D, s: StageState, r: Rect, t: number, small: boolean) {
-  ctx.save()
-  roundRect(ctx, r, small ? 22 : 28)
-  ctx.clip()
-  const g = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h)
-  g.addColorStop(0, shade(s.look.outfit, -0.55))
-  g.addColorStop(1, shade(s.look.outfit, -0.78))
-  ctx.fillStyle = g
-  ctx.fillRect(r.x, r.y, r.w, r.h)
-  // Halo behind the host's head.
-  const rg = ctx.createRadialGradient(r.x + r.w / 2, r.y + r.h * 0.45, 0, r.x + r.w / 2, r.y + r.h * 0.45, r.h * 0.6)
-  rg.addColorStop(0, "rgba(250,246,238,0.16)")
-  rg.addColorStop(1, "rgba(250,246,238,0)")
-  ctx.fillStyle = rg
-  ctx.fillRect(r.x, r.y, r.w, r.h)
-
-  if (s.portrait) {
-    drawPortrait(ctx, s, r, t)
-  } else {
-    const scale = Math.min(r.w / 430, r.h / 430)
-    drawAvatar(ctx, r.x + r.w / 2, r.y + r.h, scale, s.look, s.hostMode, s.hostLevel, s.guestLevel, t)
-  }
-  ctx.restore()
-
-  const speak = s.hostMode === "speaking" ? Math.min(1, 0.4 + s.hostLevel * 1.6) : 0
-  roundRect(ctx, r, small ? 22 : 28)
-  ctx.lineWidth = 3 + speak * 5
-  ctx.strokeStyle = `rgba(242,193,78,${0.18 + speak * 0.6})`
-  ctx.stroke()
-  nameTag(ctx, s, r, s.hostName, small)
-}
-
-function drawPortrait(ctx: CanvasRenderingContext2D, s: StageState, r: Rect, t: number) {
-  const img = s.portrait!
-  const radius = Math.min(r.w, r.h) * 0.34
-  const cx = r.x + r.w / 2
-  const cy = r.y + r.h * 0.46 + Math.sin(t * 1.6) * radius * 0.01
-  const level = s.hostMode === "speaking" ? s.hostLevel : 0
-  for (let i = 0; i < 3; i++) {
-    ctx.beginPath()
-    ctx.arc(cx, cy, radius + 10 + i * 14 + level * 40, 0, Math.PI * 2)
-    ctx.strokeStyle = `rgba(242,193,78,${(0.35 - i * 0.1) * (0.3 + level * 2)})`
-    ctx.lineWidth = 4
-    ctx.stroke()
-  }
-  ctx.save()
-  ctx.beginPath()
-  ctx.arc(cx, cy, radius, 0, Math.PI * 2)
-  ctx.clip()
-  const scale = Math.max((radius * 2) / img.width, (radius * 2) / img.height)
-  ctx.drawImage(img, cx - (img.width * scale) / 2, cy - (img.height * scale) / 2, img.width * scale, img.height * scale)
-  ctx.restore()
-  if (s.hostMode === "thinking") drawThinkingDots(ctx, cx + radius * 0.9, cy - radius * 0.9, radius / 160, t)
-}
-
 function drawThinkingDots(ctx: CanvasRenderingContext2D, x: number, y: number, k: number, t: number) {
   ctx.save()
   ctx.translate(x, y)
   ctx.scale(k, k)
   ctx.beginPath()
   ctx.roundRect(-58, -30, 116, 60, 30)
-  ctx.fillStyle = "rgba(250,246,238,0.92)"
+  ctx.fillStyle = "rgba(255,248,245,0.95)"
   ctx.fill()
   for (let i = 0; i < 3; i++) {
     const a = 0.35 + 0.65 * Math.max(0, Math.sin(t * 5 - i * 0.7))
     ctx.beginPath()
     ctx.arc(-30 + i * 30, 0, 9, 0, Math.PI * 2)
-    ctx.fillStyle = `rgba(0,50,25,${a})`
+    ctx.fillStyle = `rgba(232,56,79,${a})`
     ctx.fill()
   }
+  ctx.restore()
+}
+
+// ---- AVA, the orb ---------------------------------------------------------------
+
+// AVA's mark (three dots, from the brand) on a coral → crimson orb whose edge
+// ripples with her voice. Listening, it breathes; thinking, the dots pulse.
+export function drawOrb(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, mode: HostMode, level: number, t: number) {
+  const speak = mode === "speaking" ? Math.min(1, 0.25 + level * 1.6) : 0
+  const breathe = mode === "listening" || mode === "idle" ? Math.sin(t * 1.8) * 0.02 : 0
+  const R = r * (1 + breathe + speak * 0.05)
+
+  // Glow.
+  const glow = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R * (1.9 + speak * 0.5))
+  glow.addColorStop(0, `rgba(240,106,106,${0.38 + speak * 0.3})`)
+  glow.addColorStop(1, "rgba(240,106,106,0)")
+  ctx.fillStyle = glow
+  ctx.beginPath()
+  ctx.arc(cx, cy, R * (1.9 + speak * 0.5), 0, Math.PI * 2)
+  ctx.fill()
+
+  // Voice ripples.
+  for (let i = 0; i < 2; i++) {
+    const p = (t * 0.9 + i * 0.5) % 1
+    if (speak <= 0) break
+    ctx.beginPath()
+    ctx.arc(cx, cy, R * (1.05 + p * 0.45), 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(240,106,106,${(1 - p) * 0.55 * speak})`
+    ctx.lineWidth = r * 0.04
+    ctx.stroke()
+  }
+
+  // The orb, its edge wobbling with the voice.
+  ctx.save()
+  ctx.beginPath()
+  const steps = 72
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * Math.PI * 2
+    const wob = 1 + speak * (0.028 * Math.sin(a * 5 + t * 6) + 0.016 * Math.sin(a * 3 - t * 4))
+    const x = cx + Math.cos(a) * R * wob
+    const y = cy + Math.sin(a) * R * wob
+    if (i === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  }
+  ctx.closePath()
+  const fill = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R)
+  fill.addColorStop(0, AVA.coral)
+  fill.addColorStop(1, AVA.crimson)
+  ctx.fillStyle = fill
+  ctx.fill()
+  ctx.clip()
+  const hi = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.45, 0, cx - R * 0.35, cy - R * 0.45, R * 1.1)
+  hi.addColorStop(0, "rgba(255,255,255,0.35)")
+  hi.addColorStop(1, "rgba(255,255,255,0)")
+  ctx.fillStyle = hi
+  ctx.fillRect(cx - R, cy - R, R * 2, R * 2)
+  ctx.restore()
+
+  // The three-dot mark (21 × 19 viewBox in the brand SVG).
+  const k = (R * 0.95) / 21
+  const dots: [number, number, number][] = [
+    [10.5, 5.5, 0.92],
+    [5.5, 14.5, 0.72],
+    [15.5, 14.5, 0.72],
+  ]
+  dots.forEach(([x, y, o], i) => {
+    const pulse = mode === "thinking" ? 0.45 + 0.55 * Math.max(0, Math.sin(t * 5 - i * 1.1)) : 1
+    ctx.beginPath()
+    ctx.arc(cx + (x - 10.5) * k, cy + (y - 9.5) * k, 4.5 * k * (1 + speak * 0.08 * Math.sin(t * 9 + i)), 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(255,255,255,${o * pulse})`
+    ctx.fill()
+  })
+
+  // Online dot.
+  ctx.beginPath()
+  ctx.arc(cx + R * 0.7, cy + R * 0.7, R * 0.13, 0, Math.PI * 2)
+  ctx.fillStyle = AVA.online
+  ctx.fill()
+  ctx.lineWidth = R * 0.05
+  ctx.strokeStyle = AVA.ink
+  ctx.stroke()
+}
+
+// The host bubble, in whichever style the guest picked.
+function drawHost(ctx: CanvasRenderingContext2D, s: StageState, cx: number, cy: number, r: number, t: number) {
+  const style = s.avatarStyle === "photo" && !s.portrait ? "orb" : s.avatarStyle
+  if (style === "orb") {
+    drawOrb(ctx, cx, cy, r, s.hostMode, s.hostLevel, t)
+  } else {
+    const speak = s.hostMode === "speaking" ? Math.min(1, 0.3 + s.hostLevel * 1.6) : 0
+    const R = r * (1 + Math.sin(t * 1.6) * 0.01 + speak * 0.03)
+    ctx.save()
+    ctx.shadowColor = "rgba(0,0,0,0.45)"
+    ctx.shadowBlur = 36
+    ctx.beginPath()
+    ctx.arc(cx, cy, R, 0, Math.PI * 2)
+    ctx.fillStyle = AVA.ink
+    ctx.fill()
+    ctx.restore()
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx, cy, R, 0, Math.PI * 2)
+    ctx.clip()
+    if (style === "photo" && s.portrait) {
+      const img = s.portrait
+      const k = Math.max((R * 2) / img.width, (R * 2) / img.height) * (1.02 + speak * 0.015)
+      ctx.drawImage(img, cx - (img.width * k) / 2, cy - (img.height * k) / 2 - speak * R * 0.02, img.width * k, img.height * k)
+    } else {
+      const g = ctx.createLinearGradient(cx, cy - R, cx, cy + R)
+      g.addColorStop(0, shade(s.look.outfit, -0.45))
+      g.addColorStop(1, shade(s.look.outfit, -0.8))
+      ctx.fillStyle = g
+      ctx.fillRect(cx - R, cy - R, R * 2, R * 2)
+      drawAvatar(ctx, cx, cy + R, (R * 2) / 400, s.look, s.hostMode, s.hostLevel, s.guestLevel, t)
+    }
+    ctx.restore()
+    ctx.beginPath()
+    ctx.arc(cx, cy, R + r * 0.05 + speak * r * 0.12, 0, Math.PI * 2)
+    ctx.strokeStyle = `rgba(240,106,106,${0.45 + speak * 0.55})`
+    ctx.lineWidth = r * 0.05
+    ctx.stroke()
+    if (s.hostMode === "thinking") drawThinkingDots(ctx, cx - r * 0.9, cy - r * 0.95, r / 160, t)
+  }
+
+  // Name tag: mono, like the brand's labels.
+  ctx.font = `600 ${Math.round(r * 0.24)}px ${s.fonts.mono}`
+  const label = s.hostName.toUpperCase()
+  const w = ctx.measureText(label).width + r * 0.5
+  const h = r * 0.42
+  const tag: Rect = { x: cx - w / 2, y: cy + r * 1.22, w, h }
+  roundRect(ctx, tag, h / 2)
+  ctx.fillStyle = "rgba(30,31,33,0.82)"
+  ctx.fill()
+  ctx.fillStyle = AVA.cream
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText(label, cx, tag.y + h / 2 + 1)
+}
+
+// AVA's current line as a chat bubble.
+function drawCaption(ctx: CanvasRenderingContext2D, s: StageState, area: Rect, size: number) {
+  if (!s.caption) return
+  ctx.font = `500 ${size}px ${s.fonts.body}`
+  const maxW = area.w - size * 1.6
+  const lines = wrapLines(ctx, s.caption, maxW, s.format === "vertical" ? 4 : 3)
+  const textW = Math.max(...lines.map((l) => ctx.measureText(l).width))
+  const lineH = size * 1.32
+  const pad = size * 0.8
+  const h = pad * 2 + size * 0.95 + lines.length * lineH
+  const w = Math.min(area.w, Math.max(textW, size * 6) + pad * 2)
+  const r: Rect = { x: area.x, y: area.y + area.h - h, w, h }
+  ctx.save()
+  ctx.shadowColor = "rgba(0,0,0,0.28)"
+  ctx.shadowBlur = size
+  ctx.shadowOffsetY = size * 0.2
+  ctx.beginPath()
+  ctx.roundRect(r.x, r.y, r.w, r.h, [size * 0.7, size * 0.7, size * 0.7, size * 0.2])
+  ctx.fillStyle = "rgba(255,248,245,0.96)"
+  ctx.fill()
+  ctx.restore()
+  ctx.fillStyle = AVA.crimson
+  ctx.font = `600 ${Math.round(size * 0.5)}px ${s.fonts.mono}`
+  ctx.textAlign = "left"
+  ctx.textBaseline = "alphabetic"
+  ctx.fillText(s.hostName.toUpperCase(), r.x + pad, r.y + pad + size * 0.45)
+  ctx.fillStyle = AVA.ink
+  ctx.font = `500 ${size}px ${s.fonts.body}`
+  lines.forEach((line, i) => ctx.fillText(line, r.x + pad, r.y + pad + size * 0.95 + size + i * lineH - size * 0.15))
+}
+
+export function drawStage(ctx: CanvasRenderingContext2D, s: StageState, t: number) {
+  const { w: W, h: H } = stageSize(s.format)
+  const vertical = s.format === "vertical"
+  ctx.save()
+  ctx.fillStyle = AVA.ink
+  ctx.fillRect(0, 0, W, H)
+  drawCamera(ctx, s, { x: 0, y: 0, w: W, h: H })
+
+  // Soft shades top and bottom keep the text readable over any background.
+  const topH = vertical ? 620 : 300
+  const top = ctx.createLinearGradient(0, 0, 0, topH)
+  top.addColorStop(0, "rgba(0,0,0,0.5)")
+  top.addColorStop(1, "rgba(0,0,0,0)")
+  ctx.fillStyle = top
+  ctx.fillRect(0, 0, W, topH)
+  const botH = vertical ? 900 : 420
+  const bottom = ctx.createLinearGradient(0, H - botH, 0, H)
+  bottom.addColorStop(0, "rgba(0,0,0,0)")
+  bottom.addColorStop(1, "rgba(0,0,0,0.5)")
+  ctx.fillStyle = bottom
+  ctx.fillRect(0, H - botH, W, botH)
+
+  // Reels, TikTok and Shorts cover roughly the top 220 px and bottom 400 px
+  // of a 9:16 frame with their own interface: everything stays inside.
+  const m = 64
+  const headY = vertical ? 280 : 104
+  ctx.fillStyle = AVA.cream
+  ctx.font = `500 ${vertical ? 40 : 44}px ${s.fonts.display}`
+  ctx.textAlign = "left"
+  ctx.textBaseline = "alphabetic"
+  ctx.fillText(s.showName, m, headY)
+  if (s.themeTitle) {
+    ctx.fillStyle = AVA.coral
+    ctx.font = `600 ${vertical ? 22 : 22}px ${s.fonts.mono}`
+    ctx.fillText(s.themeTitle.toUpperCase(), m, headY + 44)
+  }
+
+  const r = vertical ? 92 : 84
+  const cx = W - m - r - 12
+  const cy = vertical ? 300 : 72 + r
+  drawHost(ctx, s, cx, cy, r, t)
+
+  const area: Rect = vertical
+    ? { x: m, y: 0, w: W - m * 2, h: H - 430 }
+    : { x: m, y: 0, w: Math.min(1240, W - m * 2), h: H - m }
+  drawCaption(ctx, s, area, vertical ? 44 : 38)
   ctx.restore()
 }
 
@@ -501,171 +572,4 @@ function drawHairFront(ctx: CanvasRenderingContext2D, look: AvatarLook) {
   ctx.bezierCurveTo(76, -44, 30, -62, 0, -60)
   ctx.bezierCurveTo(-30, -62, -76, -44, -84, -6)
   ctx.fill()
-}
-
-function drawCaption(ctx: CanvasRenderingContext2D, s: StageState) {
-  if (!s.caption) return
-  ctx.font = `500 36px ${s.fonts.body}`
-  const lines = wrapLines(ctx, s.caption, 1560, 2)
-  const h = 56 + lines.length * 46
-  const r: Rect = { x: 140, y: STAGE_H - h - 28, w: STAGE_W - 280, h }
-  roundRect(ctx, r, 24)
-  ctx.fillStyle = "rgba(14,20,17,0.86)"
-  ctx.fill()
-  ctx.strokeStyle = "rgba(242,193,78,0.35)"
-  ctx.lineWidth = 2
-  ctx.stroke()
-  ctx.fillStyle = "#F2C14E"
-  ctx.font = `700 22px ${s.fonts.body}`
-  ctx.textAlign = "left"
-  ctx.textBaseline = "alphabetic"
-  ctx.fillText(s.hostName.toUpperCase(), r.x + 36, r.y + 40)
-  ctx.fillStyle = IVORY
-  ctx.font = `500 36px ${s.fonts.body}`
-  lines.forEach((line, i) => ctx.fillText(line, r.x + 36, r.y + 86 + i * 46))
-}
-
-// ---- Vertical (9:16) ---------------------------------------------------------
-
-// Reels, TikTok and Shorts cover roughly the top 220 px and bottom 400 px with
-// their own interface, so everything that matters stays between those.
-const V_W = STAGE_H
-const V_H = STAGE_W
-const V_BUBBLE = { cx: V_W - 64 - 150, cy: 410, r: 150 }
-
-function drawHostBubble(ctx: CanvasRenderingContext2D, s: StageState, t: number) {
-  const { cx, cy, r } = V_BUBBLE
-  const speak = s.hostMode === "speaking" ? Math.min(1, 0.4 + s.hostLevel * 1.6) : 0
-
-  ctx.save()
-  ctx.shadowColor = "rgba(0,0,0,0.45)"
-  ctx.shadowBlur = 40
-  ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.fillStyle = PINE
-  ctx.fill()
-  ctx.restore()
-
-  ctx.save()
-  ctx.beginPath()
-  ctx.arc(cx, cy, r, 0, Math.PI * 2)
-  ctx.clip()
-  const g = ctx.createLinearGradient(cx, cy - r, cx, cy + r)
-  g.addColorStop(0, shade(s.look.outfit, -0.5))
-  g.addColorStop(1, shade(s.look.outfit, -0.8))
-  ctx.fillStyle = g
-  ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
-  if (s.portrait) {
-    const img = s.portrait
-    const k = Math.max((r * 2) / img.width, (r * 2) / img.height)
-    ctx.drawImage(img, cx - (img.width * k) / 2, cy - (img.height * k) / 2, img.width * k, img.height * k)
-  } else {
-    drawAvatar(ctx, cx, cy + r, (r * 2) / 400, s.look, s.hostMode, s.hostLevel, s.guestLevel, t)
-  }
-  ctx.restore()
-
-  // Speaking rings.
-  for (let i = 0; i < 2; i++) {
-    ctx.beginPath()
-    ctx.arc(cx, cy, r + 6 + i * 14 + speak * 18, 0, Math.PI * 2)
-    ctx.strokeStyle = `rgba(242,193,78,${(i === 0 ? 0.9 : 0.4) * (0.25 + speak * 0.75)})`
-    ctx.lineWidth = i === 0 ? 6 : 3
-    ctx.stroke()
-  }
-
-  ctx.font = `600 28px ${s.fonts.body}`
-  const w = ctx.measureText(s.hostName).width + 40
-  const tag: Rect = { x: cx - w / 2, y: cy + r + 26, w, h: 52 }
-  roundRect(ctx, tag, 26)
-  ctx.fillStyle = "rgba(14,20,17,0.78)"
-  ctx.fill()
-  ctx.fillStyle = IVORY
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
-  ctx.fillText(s.hostName, cx, tag.y + 27)
-}
-
-function drawVertical(ctx: CanvasRenderingContext2D, s: StageState, t: number) {
-  const full: Rect = { x: 0, y: 0, w: V_W, h: V_H }
-  ctx.fillStyle = "#16221C"
-  ctx.fillRect(0, 0, V_W, V_H)
-  drawCamera(ctx, s, full)
-
-  // Soft shades top and bottom keep the text readable over any background.
-  const top = ctx.createLinearGradient(0, 0, 0, 640)
-  top.addColorStop(0, "rgba(0,0,0,0.55)")
-  top.addColorStop(1, "rgba(0,0,0,0)")
-  ctx.fillStyle = top
-  ctx.fillRect(0, 0, V_W, 640)
-  const bottom = ctx.createLinearGradient(0, V_H - 900, 0, V_H)
-  bottom.addColorStop(0, "rgba(0,0,0,0)")
-  bottom.addColorStop(1, "rgba(0,0,0,0.6)")
-  ctx.fillStyle = bottom
-  ctx.fillRect(0, V_H - 900, V_W, 900)
-
-  ctx.fillStyle = IVORY
-  ctx.font = `600 40px ${s.fonts.display}`
-  ctx.textAlign = "left"
-  ctx.textBaseline = "alphabetic"
-  ctx.fillText(s.showName, 64, 290)
-  if (s.themeTitle) {
-    ctx.fillStyle = "#F2C14E"
-    ctx.font = `700 24px ${s.fonts.body}`
-    ctx.fillText(s.themeTitle.toUpperCase(), 64, 336)
-  }
-
-  drawHostBubble(ctx, s, t)
-
-  if (s.caption) {
-    ctx.font = `600 46px ${s.fonts.body}`
-    const lines = wrapLines(ctx, s.caption, V_W - 200, 4)
-    const h = 70 + lines.length * 60
-    const r: Rect = { x: 64, y: V_H - 420 - h, w: V_W - 128, h }
-    roundRect(ctx, r, 32)
-    ctx.fillStyle = "rgba(14,20,17,0.84)"
-    ctx.fill()
-    ctx.fillStyle = "#F2C14E"
-    ctx.font = `700 24px ${s.fonts.body}`
-    ctx.textAlign = "left"
-    ctx.textBaseline = "alphabetic"
-    ctx.fillText(s.hostName.toUpperCase(), r.x + 36, r.y + 48)
-    ctx.fillStyle = IVORY
-    ctx.font = `600 46px ${s.fonts.body}`
-    lines.forEach((line, i) => ctx.fillText(line, r.x + 36, r.y + 106 + i * 60))
-  }
-}
-
-export function drawStage(ctx: CanvasRenderingContext2D, s: StageState, t: number, dt: number) {
-  if (s.format === "vertical") {
-    ctx.save()
-    drawVertical(ctx, s, t)
-    ctx.restore()
-    return
-  }
-  // Smooth the layout towards its target (~0.6 s).
-  const step = Math.min(1, dt * 3.2)
-  s.layout += (s.layoutTarget - s.layout) * step
-  const k = ease(Math.max(0, Math.min(1, s.layout)))
-
-  ctx.save()
-  ctx.fillStyle = INK
-  ctx.fillRect(0, 0, STAGE_W, STAGE_H)
-  drawBackdrop(ctx, s, t)
-
-  const guest = lerpRect(SPLIT_GUEST, FOCUS_GUEST, k)
-  const host = lerpRect(SPLIT_HOST, FOCUS_HOST, k)
-  drawGuestPanel(ctx, s, guest)
-  // A drop shadow keeps the picture-in-picture host readable over the camera.
-  if (k > 0.05) {
-    ctx.save()
-    ctx.shadowColor = "rgba(0,0,0,0.5)"
-    ctx.shadowBlur = 40 * k
-    roundRect(ctx, host, 22)
-    ctx.fillStyle = PINE
-    ctx.fill()
-    ctx.restore()
-  }
-  drawHostPanel(ctx, s, host, t, k > 0.5)
-  drawCaption(ctx, s)
-  ctx.restore()
 }

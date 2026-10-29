@@ -7,14 +7,14 @@ export const metadata = {
 }
 
 export const viewport = {
-  themeColor: "#0B0F0D",
+  themeColor: "#FAF8F4",
   viewportFit: "cover",
 }
 
 function Loading() {
   return (
     <div className="flex min-h-dvh items-center justify-center px-6">
-      <p className="text-lg text-[#F7F3EA]/60" style={{ fontFamily: "var(--font-fraunces), serif" }}>
+      <p className="text-lg text-[var(--ava-mist)]" style={{ fontFamily: "var(--font-fraunces), serif" }}>
         Le studio s'allume…
       </p>
     </div>

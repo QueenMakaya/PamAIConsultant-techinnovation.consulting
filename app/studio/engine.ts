@@ -257,6 +257,7 @@ export class Listener {
   private rec: SpeechRecognitionLike | null = null
   private active = false
   private finalText = ""
+  private interim = ""
   private segmentStart = 0
   segments: Segment[] = []
   lastHeardAt = 0
@@ -269,11 +270,21 @@ export class Listener {
     private readonly onUpdate: (finalText: string, interim: string) => void,
   ) {}
 
+  get supported(): boolean {
+    return recognitionCtor() !== null
+  }
+
+  // Everything heard since start(), including the current unfinished guess.
+  get text(): string {
+    return this.interim ? `${this.finalText} ${this.interim}`.trim() : this.finalText
+  }
+
   start(lang: Lang, carryOver = "") {
     this.stop()
     const Ctor = recognitionCtor()
     if (!Ctor || this.blocked) return
     this.finalText = carryOver
+    this.interim = ""
     this.segments = []
     this.segmentStart = this.clock()
     this.lastHeardAt = performance.now()
@@ -299,8 +310,9 @@ export class Listener {
         }
       }
       this.lastHeardAt = performance.now()
+      this.interim = interim.trim()
       if (this.finalText || interim) this.heardAnything = true
-      this.onUpdate(this.finalText, interim.trim())
+      this.onUpdate(this.finalText, this.interim)
     }
     rec.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {

@@ -167,14 +167,14 @@ export default function ReviewScreen({
   }, [data, turns, total, chapters, t])
 
   const chipBase = "inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold transition"
-  const chip = `${chipBase} bg-white/[0.07] hover:bg-white/[0.12]`
+  const chip = `${chipBase} bg-[var(--ava-ink)]/[0.07] hover:bg-[var(--ava-ink)]/[0.12]`
 
   return (
     <div className="mx-auto max-w-6xl px-6 pb-20 pt-[max(1.25rem,env(safe-area-inset-top))] animate-in fade-in duration-500">
       <div className="flex items-center justify-between gap-4">
         <div>
           <Eyebrow>{showName}</Eyebrow>
-          <h1 className="mt-1 text-3xl text-[#F7F3EA] sm:text-4xl" style={display}>
+          <h1 className="mt-1 text-3xl text-[var(--ava-ink)] sm:text-4xl" style={display}>
             {video ? t.wrapTitle : t.practiceDone}
           </h1>
         </div>
@@ -200,7 +200,7 @@ export default function ReviewScreen({
           )}
           <div className="flex flex-wrap gap-2">
             {video && (
-              <button type="button" className={`${chipBase} bg-[#F2C14E] text-[#14110A] hover:bg-[#F6D06F]`} onClick={() => download(`${fileBase}.${video.ext}`, video.blob)}>
+              <button type="button" className={`${chipBase} bg-[var(--ava-crimson)] text-[var(--ava-cream)] hover:bg-[var(--ava-crimson-deep)]`} onClick={() => download(`${fileBase}.${video.ext}`, video.blob)}>
                 <Download size={16} />
                 {t.downloadVideo}
               </button>
@@ -236,16 +236,16 @@ export default function ReviewScreen({
             <ol className="mt-6 space-y-5">
               {turns.map((tn, i) => (
                 <li key={i} className="text-sm leading-relaxed">
-                  <p className="text-[#F2C14E]/90">
-                    <span className="mr-2 tabular-nums text-[#F7F3EA]/35">{clock(tn.at)}</span>
+                  <p className="text-[var(--ava-crimson)]/90">
+                    <span className="mr-2 tabular-nums text-[var(--ava-ink)]/35">{clock(tn.at)}</span>
                     {tn.text}
                     {techniqueName(tn.technique) && (
-                      <span className="ml-2 inline-block rounded-full bg-white/[0.07] px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-[#F7F3EA]/55">
+                      <span className="ml-2 inline-block rounded-full bg-[var(--ava-ink)]/[0.07] px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-[var(--ava-ink)]/55">
                         {techniqueName(tn.technique)}
                       </span>
                     )}
                   </p>
-                  {tn.answer && <p className="mt-1.5 pl-12 text-[#F7F3EA]/80">{tn.answer}</p>}
+                  {tn.answer && <p className="mt-1.5 pl-12 text-[var(--ava-ink)]/80">{tn.answer}</p>}
                 </li>
               ))}
             </ol>
@@ -253,7 +253,7 @@ export default function ReviewScreen({
             <div className="mt-6 space-y-8">
               {content.state === "loading" && (
                 <Card>
-                  <div className="flex items-center gap-3 text-[#F2C14E]">
+                  <div className="flex items-center gap-3 text-[var(--ava-crimson)]">
                     <Sparkles size={18} className="animate-pulse" />
                     <p style={display} className="text-lg">
                       {t.generating}
@@ -261,8 +261,8 @@ export default function ReviewScreen({
                   </div>
                   <ol className="mt-5 space-y-3">
                     {t.generatingSteps.map((s, i) => (
-                      <li key={s} className={cx("flex items-center gap-3 text-sm transition", i <= step ? "text-[#F7F3EA]" : "text-[#F7F3EA]/30")}>
-                        <span className={cx("h-2 w-2 rounded-full", i < step ? "bg-[#2FBF71]" : i === step ? "animate-pulse bg-[#F2C14E]" : "bg-white/20")} />
+                      <li key={s} className={cx("flex items-center gap-3 text-sm transition", i <= step ? "text-[var(--ava-ink)]" : "text-[var(--ava-ink)]/30")}>
+                        <span className={cx("h-2 w-2 rounded-full", i < step ? "bg-[#22A06B]" : i === step ? "animate-pulse bg-[var(--ava-crimson)]" : "bg-[var(--ava-ink)]/20")} />
                         {s}
                       </li>
                     ))}
@@ -275,28 +275,28 @@ export default function ReviewScreen({
               )}
               {content.state === "error" && (
                 <Card>
-                  <p className="text-[#FF8A80]">{t.contentError}</p>
+                  <p className="text-[var(--ava-crimson-deep)]">{t.contentError}</p>
                   <Button variant="secondary" className="mt-4" onClick={onRetry}>
                     <RotateCcw size={16} />
                     {t.retry}
                   </Button>
                 </Card>
               )}
-              {content.state === "noai" && <Card className="text-sm text-[#F7F3EA]/65">{t.contentNoAi}</Card>}
-              {content.state === "empty" && <Card className="text-sm text-[#F7F3EA]/65">{t.contentNoAnswers}</Card>}
+              {content.state === "noai" && <Card className="text-sm text-[var(--ava-ink)]/65">{t.contentNoAi}</Card>}
+              {content.state === "empty" && <Card className="text-sm text-[var(--ava-ink)]/65">{t.contentNoAnswers}</Card>}
 
               {data && (
                 <>
                   {content.state === "ready" && content.saved && (
-                    <p className="rounded-2xl bg-[#2FBF71]/10 px-4 py-3 text-sm text-[#9BE8BE]">{t.savedToMemory}</p>
+                    <p className="rounded-2xl bg-[#DDF7EA] px-4 py-3 text-sm text-[#147A4B]">{t.savedToMemory}</p>
                   )}
 
                   <section>
                     <div className="mb-3 flex items-baseline justify-between">
-                      <h2 className="text-xl text-[#F7F3EA]" style={display}>
+                      <h2 className="text-xl text-[var(--ava-ink)]" style={display}>
                         {t.clips}
                       </h2>
-                      <span className="text-xs text-[#F7F3EA]/40">{t.clipsHint}</span>
+                      <span className="text-xs text-[var(--ava-ink)]/40">{t.clipsHint}</span>
                     </div>
                     <div className="space-y-3">
                       {data.clips.map((c, i) => {
@@ -304,26 +304,26 @@ export default function ReviewScreen({
                         return (
                           <Card key={i}>
                             <div className="flex items-center justify-between gap-3">
-                              <span className="rounded-full bg-white/[0.07] px-3 py-1 text-xs tabular-nums text-[#F7F3EA]/70">
+                              <span className="rounded-full bg-[var(--ava-ink)]/[0.07] px-3 py-1 text-xs tabular-nums text-[var(--ava-ink)]/70">
                                 {clock(r.start)} → {clock(r.end)}
                               </span>
                               {video && (
                                 <button
                                   type="button"
                                   onClick={() => watch(r.start, r.end)}
-                                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-[#F2C14E] hover:bg-[#F2C14E]/10"
+                                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-[var(--ava-crimson)] hover:bg-[var(--ava-crimson)]/10"
                                 >
                                   <Play size={14} fill="currentColor" />
                                   {t.watchMoment}
                                 </button>
                               )}
                             </div>
-                            <p className="mt-4 text-xl leading-snug text-[#F7F3EA]" style={display}>
+                            <p className="mt-4 text-xl leading-snug text-[var(--ava-ink)]" style={display}>
                               {c.hook}
                             </p>
-                            <p className="mt-3 inline-block rounded-lg bg-[#F7F3EA] px-2.5 py-1 text-sm font-bold text-[#14110A]">{c.onScreenText}</p>
-                            <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#F7F3EA]/75">{c.caption}</p>
-                            <p className="mt-2 text-sm text-[#F2C14E]/80">{c.hashtags.map((x) => `#${x.replace(/^#/, "")}`).join(" ")}</p>
+                            <p className="mt-3 inline-block rounded-lg bg-[var(--ava-ink)] px-2.5 py-1 text-sm font-bold text-[var(--ava-cream)]">{c.onScreenText}</p>
+                            <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[var(--ava-ink)]/75">{c.caption}</p>
+                            <p className="mt-2 text-sm text-[var(--ava-crimson)]/80">{c.hashtags.map((x) => `#${x.replace(/^#/, "")}`).join(" ")}</p>
                             <div className="mt-4 flex justify-end">
                               <CopyButton
                                 text={`${c.caption}\n\n${c.hashtags.map((x) => `#${x.replace(/^#/, "")}`).join(" ")}`}
@@ -339,25 +339,25 @@ export default function ReviewScreen({
 
                   <section>
                     <div className="mb-3 flex items-center justify-between">
-                      <h2 className="text-xl text-[#F7F3EA]" style={display}>
+                      <h2 className="text-xl text-[var(--ava-ink)]" style={display}>
                         {t.linkedin}
                       </h2>
                       <CopyButton text={data.linkedin} label={t.copy} done={t.copied} />
                     </div>
                     <Card>
-                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[#F7F3EA]/85">{data.linkedin}</p>
+                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--ava-ink)]/85">{data.linkedin}</p>
                     </Card>
                   </section>
 
                   <section>
                     <div className="mb-3 flex items-center justify-between">
-                      <h2 className="text-xl text-[#F7F3EA]" style={display}>
+                      <h2 className="text-xl text-[var(--ava-ink)]" style={display}>
                         {t.instagram}
                       </h2>
                       <CopyButton text={data.instagram.caption} label={t.copy} done={t.copied} />
                     </div>
                     <Card>
-                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[#F7F3EA]/85">{data.instagram.caption}</p>
+                      <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[var(--ava-ink)]/85">{data.instagram.caption}</p>
                     </Card>
                     <div className="mt-4 flex items-center justify-between">
                       <SectionLabel>{t.carousel}</SectionLabel>
@@ -369,7 +369,7 @@ export default function ReviewScreen({
                           key={i}
                           className={cx(
                             "flex aspect-[4/5] w-56 shrink-0 snap-start flex-col justify-between rounded-3xl p-5",
-                            i === 0 ? "bg-[#F2C14E] text-[#14110A]" : "bg-[#F7F3EA] text-[#14110A]",
+                            i === 0 ? "bg-[var(--ava-crimson)] text-[var(--ava-cream)]" : "bg-[var(--ava-ink)] text-[var(--ava-cream)]",
                           )}
                         >
                           <span className="text-xs font-semibold opacity-60">
@@ -384,7 +384,7 @@ export default function ReviewScreen({
                   </section>
 
                   <section>
-                    <h2 className="mb-3 text-xl text-[#F7F3EA]" style={display}>
+                    <h2 className="mb-3 text-xl text-[var(--ava-ink)]" style={display}>
                       {t.youtube}
                     </h2>
                     <Card className="space-y-6">
@@ -393,7 +393,7 @@ export default function ReviewScreen({
                         <ul className="space-y-2">
                           {data.youtube.titles.map((x) => (
                             <li key={x} className="flex items-start justify-between gap-3">
-                              <span className="font-semibold text-[#F7F3EA]">{x}</span>
+                              <span className="font-semibold text-[var(--ava-ink)]">{x}</span>
                               <CopyButton text={x} label={t.copy} done={t.copied} />
                             </li>
                           ))}
@@ -404,15 +404,15 @@ export default function ReviewScreen({
                           <SectionLabel>{t.description}</SectionLabel>
                           <CopyButton text={`${data.youtube.description}\n\n${chapters}`} label={t.copy} done={t.copied} />
                         </div>
-                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#F7F3EA]/75">{data.youtube.description}</p>
-                        <pre className="mt-3 whitespace-pre-wrap text-sm tabular-nums text-[#F7F3EA]/60" style={{ fontFamily: "inherit" }}>
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--ava-ink)]/75">{data.youtube.description}</p>
+                        <pre className="mt-3 whitespace-pre-wrap text-sm tabular-nums text-[var(--ava-ink)]/60" style={{ fontFamily: "inherit" }}>
                           {chapters}
                         </pre>
                       </div>
                       <div className="grid gap-6 sm:grid-cols-2">
                         <div>
                           <SectionLabel>{t.thumbnail}</SectionLabel>
-                          <p className="text-2xl text-[#F7F3EA]" style={display}>
+                          <p className="text-2xl text-[var(--ava-ink)]" style={display}>
                             {data.youtube.thumbnailText}
                           </p>
                         </div>
@@ -421,7 +421,7 @@ export default function ReviewScreen({
                             <SectionLabel>{t.tags}</SectionLabel>
                             <CopyButton text={data.youtube.tags.join(", ")} label={t.copy} done={t.copied} />
                           </div>
-                          <p className="text-sm text-[#F7F3EA]/65">{data.youtube.tags.join(", ")}</p>
+                          <p className="text-sm text-[var(--ava-ink)]/65">{data.youtube.tags.join(", ")}</p>
                         </div>
                       </div>
                     </Card>

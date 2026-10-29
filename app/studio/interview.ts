@@ -4,8 +4,10 @@ import { fill, lines } from "./copy"
 import type { EpisodeClock, HostVoice, Listener, StageRecorder, StudioAudio } from "./engine"
 import type { HostMode, StageState } from "./stage"
 
-// The interview as a little state machine, independent of React: the host
-// speaks, listens, decides on a follow-up, moves on. The page drives it with
+// The interview as a conversation, independent of React. AVA speaks, then
+// listens; when the guest has finished a thought she takes her turn by herself
+// (a follow-up or the next question), helps when the guest goes quiet, and
+// never leaves a silence hanging. The page can still drive it by hand with
 // next() / skip() / … and renders whatever it reports through onView.
 
 export type InterviewItem = { text: Bilingual; kind: "question" | "closing" }
@@ -27,15 +29,18 @@ export type InterviewConfig = {
   followUps: number
   autoAdvance: number
   captions: boolean
-  autoLayout: boolean
   practice: boolean
   ai: boolean
   themeTitle: (lang: Lang) => string
   vars: (lang: Lang) => Record<string, string>
   brief: Brief | null
   past: PastEpisode[]
-  // The host speaks up when the guest goes quiet.
+  // AVA speaks up when the guest goes quiet.
   nudges: boolean
+  // AVA takes her turn by herself when the guest has finished speaking.
+  handsFree: boolean
+  // How long a pause after a real answer counts as "done", in ms.
+  patienceMs: number
   learned: LearnedMove[]
 }
 
@@ -56,13 +61,26 @@ export type InterviewDeps = {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-// Silence long enough to help, short enough not to cut a thought: a pause
-// before answering gets a way in; a pause mid-answer gets a short prompt to
-// continue. Voice from the mic counts as speech even when transcription lags.
-const START_SILENCE_MS = 9000
-const MID_SILENCE_MS = 6500
-const VOICE_LEVEL = 0.12
-const MAX_NUDGES = 2
+// A pause before answering gets an easy way in, and if the silence goes on,
+// AVA moves on. A short answer followed by a pause gets "say more"; a real
+// answer followed by a pause is the end of the guest's turn.
+const START_SILENCE_MS = 8000
+const SHORT_ANSWER_SILENCE_MS = 5500
+const REAL_ANSWER_WORDS = 10
+// If AVA's reply takes longer than this, she says "mmh" first, like people do.
+const FILLER_AFTER_MS = 900
+
+const FILLERS: Record<Lang, string[]> = {
+  fr: ["Mmh.", "Je vois.", "D'accord.", "Intéressant."],
+  en: ["Mm-hmm.", "I see.", "Okay.", "Interesting."],
+}
+const ACKS: Record<Lang, string[]> = {
+  fr: ["Merci.", "J'adore.", "C'est fort.", "Très clair."],
+  en: ["Thank you.", "Love that.", "That's powerful.", "Very clear."],
+}
+const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)]
+
+const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length
 
 export class Interview {
   turns: Turn[] = []
@@ -75,7 +93,10 @@ export class Interview {
   private finishing = false
   private listenStartedAt = 0
   private lastVoiceAt = 0
-  private nudgesHere = 0
+  private voiceMs = 0
+  private noiseFloor = 0.02
+  private nudgedStart = false
+  private nudgedMid = false
 
   constructor(
     private readonly cfg: InterviewConfig,
@@ -101,7 +122,6 @@ export class Interview {
     const turn: Turn = { kind, text, lang, at: this.d.clock.now(), endAt: 0, answer: "", segments: [], technique }
     this.turns.push(turn)
     const s = this.d.stage
-    s.layoutTarget = 0
     s.caption = this.cfg.captions ? text : null
     this.d.onView({ hostLine: text, heard: "", interim: "" })
     this.setMode("speaking")
@@ -112,10 +132,10 @@ export class Interview {
 
   private listen(lang: Lang) {
     if (this.stopping) return
-    this.d.stage.layoutTarget = this.cfg.autoLayout ? 1 : 0
     this.setMode("listening")
     this.listenStartedAt = performance.now()
     this.lastVoiceAt = 0
+    this.voiceMs = 0
     this.d.listener.start(lang)
   }
 
@@ -130,6 +150,14 @@ export class Interview {
     }
     listener.segments = []
     return text
+  }
+
+  private answerSoFar(): string {
+    return this.turns
+      .slice(this.questionTurn)
+      .map((t) => t.answer)
+      .filter(Boolean)
+      .join(" ")
   }
 
   // Called after the countdown: starts the recording and opens the show.
@@ -151,13 +179,16 @@ export class Interview {
     const lang = this.langFor(0)
     this.d.voice.prefetch(fill(lines[lang].opener, this.cfg.vars(lang)))
     this.d.voice.prefetch(this.cfg.items[0]?.text[lang] ?? "")
+    const langs: Lang[] = this.cfg.epLang === "mix" ? ["fr", "en"] : [this.cfg.epLang]
+    for (const l of langs) [...FILLERS[l], ...ACKS[l]].forEach((x) => this.d.voice.prefetch(x))
   }
 
   private async askCurrent() {
     const item = this.cfg.items[this.index]
     const lang = this.langFor(this.index)
     this.questionTurn = this.turns.length
-    this.nudgesHere = 0
+    this.nudgedStart = false
+    this.nudgedMid = false
     this.d.onView({ index: this.index, total: this.cfg.items.length })
     await this.say(item.kind, item.text[lang], lang)
     const upcoming = this.cfg.items[this.index + 1]
@@ -194,6 +225,23 @@ export class Interview {
     )
   }
 
+  // Waits for AVA's brain; if it's slow, she says "mmh" meanwhile. Returns the
+  // result and whether a filler was spoken.
+  private async withFiller<T>(lang: Lang, work: Promise<T>): Promise<{ result: T; filled: boolean }> {
+    let settled = false
+    const tracked = work.finally(() => {
+      settled = true
+    })
+    await Promise.race([tracked, sleep(FILLER_AFTER_MS)])
+    if (settled) return { result: await tracked, filled: false }
+    this.setMode("speaking")
+    await this.d.voice.speak(pick(FILLERS[lang]), lang)
+    this.setMode("thinking")
+    return { result: await tracked, filled: true }
+  }
+
+  // The guest's turn is over (they tapped, or finished speaking): follow up
+  // on what they said, or acknowledge it and move to the next question.
   async next() {
     if (this.busy || this.paused || this.stopping) return
     this.busy = true
@@ -201,37 +249,40 @@ export class Interview {
       this.collect()
       const lang = this.langFor(this.index)
       const item = this.cfg.items[this.index]
-      const answer = this.turns
-        .slice(this.questionTurn)
-        .map((t) => t.answer)
-        .filter(Boolean)
-        .join(" ")
+      const answer = this.answerSoFar()
       let transition = ""
       if (this.cfg.ai && this.cfg.followUps > 0 && answer.trim().length > 12) {
         this.setMode("thinking")
-        const res = await this.d.callHost<{ decision?: { action: string; technique?: string; line: string } }>(
-          {
-            action: "followup",
-            lang,
-            themeTitle: this.cfg.themeTitle(lang),
-            question: item.text[lang],
-            answer,
-            followUpsSoFar: this.followUps,
-            followUpsLeft: this.cfg.followUps - this.followUps.length,
-            past: this.cfg.past,
-            brief: this.cfg.brief,
-            learned: this.cfg.learned,
-          },
-          15000,
+        const { result: res, filled } = await this.withFiller(
+          lang,
+          this.d.callHost<{ decision?: { action: string; technique?: string; line: string } }>(
+            {
+              action: "followup",
+              lang,
+              themeTitle: this.cfg.themeTitle(lang),
+              question: item.text[lang],
+              answer,
+              followUpsSoFar: this.followUps,
+              followUpsLeft: this.cfg.followUps - this.followUps.length,
+              past: this.cfg.past,
+              brief: this.cfg.brief,
+              learned: this.cfg.learned,
+            },
+            15000,
+          ),
         )
         const decision = res?.decision
         if (decision?.action === "follow_up" && decision.line && this.followUps.length < this.cfg.followUps) {
           this.followUps.push(decision.line)
+          this.nudgedMid = false
           await this.say("followup", decision.line, lang, decision.technique)
           this.listen(lang)
           return
         }
-        transition = decision?.line ?? ""
+        // A filler already acknowledged the answer; don't stack a second one.
+        transition = filled ? "" : (decision?.line ?? "")
+      } else if (answer.trim()) {
+        transition = pick(ACKS[lang])
       }
       await this.advance(transition)
     } finally {
@@ -260,9 +311,12 @@ export class Interview {
       let line = ""
       if (this.cfg.ai) {
         this.setMode("thinking")
-        const res = await this.d.callHost<{ line?: string }>(
-          { action: "rephrase", lang, themeTitle: this.cfg.themeTitle(lang), question, brief: this.cfg.brief, learned: this.cfg.learned },
-          12000,
+        const { result: res } = await this.withFiller(
+          lang,
+          this.d.callHost<{ line?: string }>(
+            { action: "rephrase", lang, themeTitle: this.cfg.themeTitle(lang), question, brief: this.cfg.brief, learned: this.cfg.learned },
+            12000,
+          ),
         )
         line = res?.line ?? ""
       }
@@ -340,20 +394,16 @@ export class Interview {
     await this.d.recorder.stop()
   }
 
-  // The host speaks up after a silence, using the playbook.
+  // AVA speaks up after a silence, using the playbook.
   private async nudge(kind: "start" | "mid") {
     if (this.busy || this.paused || this.stopping) return
     this.busy = true
-    this.nudgesHere += 1
+    if (kind === "start") this.nudgedStart = true
+    else this.nudgedMid = true
     try {
       this.collect()
       const lang = this.langFor(this.index)
       const question = this.cfg.items[this.index].text[lang]
-      const answer = this.turns
-        .slice(this.questionTurn)
-        .map((t) => t.answer)
-        .filter(Boolean)
-        .join(" ")
       let line = ""
       let technique = kind === "start" ? "easy_entry" : "say_more"
       if (this.cfg.ai) {
@@ -365,7 +415,7 @@ export class Interview {
             lang,
             themeTitle: this.cfg.themeTitle(lang),
             question,
-            answer,
+            answer: this.answerSoFar(),
             brief: this.cfg.brief,
             learned: this.cfg.learned,
           },
@@ -384,25 +434,62 @@ export class Interview {
     }
   }
 
-  // Called every frame: silence nudges, then optional auto-advance.
+  // Silence after a nudge that didn't help: AVA moves on gently.
+  private async moveOnGently() {
+    if (this.busy || this.paused || this.stopping) return
+    this.busy = true
+    try {
+      this.collect()
+      await this.advance(lines[this.langFor(this.index)].moveOn)
+    } finally {
+      this.busy = false
+    }
+  }
+
+  // Called every frame: decides when the guest's turn is over.
   tick(now: number) {
     if (this.d.stage.hostMode !== "listening" || this.busy || this.paused || this.stopping) return
     const listener = this.d.listener
-    if (this.d.stage.guestLevel > VOICE_LEVEL) this.lastVoiceAt = now
-    const spoken = listener.heardAnything || this.lastVoiceAt > this.listenStartedAt
-    const lastActivity = Math.max(this.listenStartedAt, this.lastVoiceAt, spoken ? listener.lastHeardAt : 0)
-    const canNudge = this.cfg.nudges && this.nudgesHere < MAX_NUDGES
 
-    if (canNudge && !spoken && now - this.listenStartedAt > START_SILENCE_MS) {
-      void this.nudge("start")
+    // Speech activity: the transcript when the browser transcribes, the mic
+    // level otherwise — against a noise floor learned while listening, so a
+    // fan or street noise isn't mistaken for talking.
+    const level = this.d.stage.guestLevel
+    if (level < this.noiseFloor * 1.5) this.noiseFloor += (level - this.noiseFloor) * 0.02
+    const transcribing = !listener.blocked && listener.supported
+    const voiceNow = level > Math.max(0.15, this.noiseFloor * 3)
+    if (voiceNow) {
+      if (this.lastVoiceAt) this.voiceMs += Math.min(100, now - this.lastVoiceAt)
+      this.lastVoiceAt = now
+    }
+    const spoken = transcribing ? listener.heardAnything : this.voiceMs > 600
+    const lastActivity = transcribing ? Math.max(this.listenStartedAt, listener.lastHeardAt) : Math.max(this.listenStartedAt, this.lastVoiceAt)
+    const silence = now - lastActivity
+    const words = transcribing ? wordCount(listener.text) + wordCount(this.answerSoFar()) : Math.round(this.voiceMs / 400)
+
+    if (!spoken) {
+      if (silence < START_SILENCE_MS) return
+      if (this.cfg.nudges && !this.nudgedStart) void this.nudge("start")
+      else if (this.cfg.handsFree) void this.moveOnGently()
       return
     }
-    if (canNudge && spoken && now - lastActivity > MID_SILENCE_MS) {
+
+    if (this.cfg.handsFree) {
+      if (words >= REAL_ANSWER_WORDS && silence >= this.cfg.patienceMs) {
+        void this.next()
+      } else if (words < REAL_ANSWER_WORDS && silence >= SHORT_ANSWER_SILENCE_MS) {
+        if (this.cfg.nudges && !this.nudgedMid) void this.nudge("mid")
+        else void this.next()
+      }
+      return
+    }
+
+    // Hands-free off: nudges only, then the optional auto-advance.
+    if (this.cfg.nudges && !this.nudgedMid && silence >= SHORT_ANSWER_SILENCE_MS + 1000) {
       void this.nudge("mid")
       return
     }
-
     const wait = this.cfg.autoAdvance
-    if (wait > 0 && !canNudge && spoken && now - lastActivity > wait * 1000) void this.next()
+    if (wait > 0 && silence > wait * 1000) void this.next()
   }
 }

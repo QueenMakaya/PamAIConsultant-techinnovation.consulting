@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import { ArrowLeft, ArrowRight } from "lucide-react"
-import type { AvatarLook, Brief, EpisodeLang } from "@/lib/studio/types"
+import type { AvatarLook, AvatarStyle, Brief, EpisodeLang } from "@/lib/studio/types"
 import type { UiCopy } from "../copy"
 import { Button, Eyebrow, cx, display, inputCls } from "../ui"
 import AvatarPreview from "./AvatarPreview"
@@ -26,36 +26,36 @@ export function Welcome({
   t,
   look,
   portrait,
+  avatarStyle,
   onStart,
 }: {
   t: UiCopy
   look: AvatarLook
   portrait: string | null
+  avatarStyle: AvatarStyle
   onStart: () => void
 }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-xl flex-col px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(2rem,env(safe-area-inset-top))] animate-in fade-in duration-700">
       <div className="flex flex-1 flex-col justify-center pb-6">
-        <div className="relative mb-8 h-24 w-24">
-          <span className="absolute -inset-6 rounded-full bg-[#F2C14E]/20 blur-2xl" />
-          <span className="absolute -inset-1.5 rounded-full ring-2 ring-[#F2C14E]/60" />
-          <AvatarPreview look={look} portrait={portrait} size={96} speaking />
+        <div className="mb-10 mt-6">
+          <AvatarPreview look={look} portrait={portrait} avatarStyle={avatarStyle} size={88} speaking />
         </div>
         <Eyebrow>{t.welcomeEyebrow}</Eyebrow>
-        <h1 className="mt-3 text-[2.25rem] leading-[1.05] text-[#F7F3EA] sm:text-5xl" style={display}>
+        <h1 className="mt-3 text-[2.25rem] leading-[1.05] text-[var(--ava-ink)] sm:text-5xl" style={display}>
           {t.welcomeTitle}
         </h1>
-        <p className="mt-3 text-base leading-relaxed text-[#F7F3EA]/65 sm:text-lg">{t.welcomeText}</p>
+        <p className="mt-3 text-base leading-relaxed text-[var(--ava-ink)]/65 sm:text-lg">{t.welcomeText}</p>
 
         <ol className="mt-8 space-y-4">
           {t.welcomeSteps.map((step, i) => (
             <li key={step.title} className="flex items-start gap-4 animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${200 + i * 120}ms`, animationFillMode: "both" }}>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.07] text-sm font-semibold text-[#F2C14E]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--ava-ink)]/[0.07] text-sm font-semibold text-[var(--ava-crimson)]">
                 {i + 1}
               </span>
               <div>
-                <p className="font-semibold text-[#F7F3EA]">{step.title}</p>
-                <p className="text-sm text-[#F7F3EA]/55">{step.text}</p>
+                <p className="font-semibold text-[var(--ava-ink)]">{step.title}</p>
+                <p className="text-sm text-[var(--ava-ink)]/55">{step.text}</p>
               </div>
             </li>
           ))}
@@ -122,23 +122,23 @@ export function BriefForm({
           type="button"
           onClick={() => go(-1)}
           aria-label={t.back}
-          className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[#F7F3EA]/70 hover:bg-white/[0.06]"
+          className="-ml-2 flex h-11 w-11 items-center justify-center rounded-full text-[var(--ava-ink)]/70 hover:bg-[var(--ava-ink)]/[0.06]"
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
-          <div className="h-full rounded-full bg-[#F2C14E] transition-all duration-500" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--ava-ink)]/[0.08]">
+          <div className="h-full rounded-full bg-[var(--ava-crimson)] transition-all duration-500" style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
         </div>
-        <span className="w-10 text-right text-xs tabular-nums text-[#F7F3EA]/45">
+        <span className="w-10 text-right text-xs tabular-nums text-[var(--ava-ink)]/45">
           {step + 1}/{STEPS.length}
         </span>
       </div>
 
       <div key={current.key} className="flex flex-1 flex-col justify-center py-10 animate-in fade-in slide-in-from-right-4 duration-300">
-        <label htmlFor={`brief-${current.key}`} className="text-3xl leading-tight text-[#F7F3EA] sm:text-4xl" style={display}>
+        <label htmlFor={`brief-${current.key}`} className="text-3xl leading-tight text-[var(--ava-ink)] sm:text-4xl" style={display}>
           {copy.label}
         </label>
-        {copy.help && <p className="mt-3 text-[#F7F3EA]/55">{copy.help}</p>}
+        {copy.help && <p className="mt-3 text-[var(--ava-ink)]/55">{copy.help}</p>}
 
         <div className="mt-8">
           {current.key === "lang" ? (
@@ -150,7 +150,7 @@ export function BriefForm({
                   onClick={() => onChange({ ...brief, lang: o.value })}
                   className={cx(
                     "min-h-14 rounded-2xl px-5 text-left text-lg transition",
-                    brief.lang === o.value ? "bg-[#F7F3EA] font-semibold text-[#14110A]" : "bg-white/[0.06] text-[#F7F3EA] hover:bg-white/[0.1]",
+                    brief.lang === o.value ? "bg-[var(--ava-ink)] font-semibold text-[var(--ava-cream)]" : "bg-[var(--ava-ink)]/[0.06] text-[var(--ava-ink)] hover:bg-[var(--ava-ink)]/[0.1]",
                   )}
                 >
                   {o.label}
@@ -194,7 +194,7 @@ export function BriefForm({
             </div>
           )}
           {current.key !== "lang" && (
-            <p className="mt-3 hidden text-xs text-[#F7F3EA]/35 sm:block">{t.pressEnter}</p>
+            <p className="mt-3 hidden text-xs text-[var(--ava-ink)]/35 sm:block">{t.pressEnter}</p>
           )}
         </div>
       </div>

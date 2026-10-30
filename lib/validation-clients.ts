@@ -148,6 +148,32 @@ const CLIENTS: ClientDef[] = [
       comment: "fldOQDWJJLooWoHYY", // Commentaires ROOMA
     },
   },
+  {
+    // Folashade (Folashade Wax, Montréal) "Calendrier".
+    slug: "folashade",
+    tokenEnv: "FOLASHADE_VALIDATION_TOKEN",
+    base: () => "appS1AZLNH7Smy2Ds",
+    table: () => "tbl7mDYDXGHTn69YT",
+    // Once a post is scheduled/published it leaves the validation view; only
+    // posts still needing validation (Idée, À produire, Prêt) stay visible.
+    hideWhenScheduled: {
+      statusFieldId: "fldQJKxAJBp2CkTkN", // Statut production
+      excludeOptionIds: ["sel4g8HfdTy1NAVds", "sel7JjBOhA9Mzc02w"], // Programmé, Publié
+      excludeOptionNames: ["Programmé", "Publié"],
+    },
+    fields: {
+      title: "fldPer8J35KcWsa02", // Titre
+      date: "fld0TlgMc8pC5gXcd", // Date
+      channel: "fldGzFs9AOvdeu5oH", // Plateforme
+      format: "fldHubZDCWhuNQxs1", // Format
+      caption: "fldRrrNWw20QEV6yw", // Légende proposée
+      hashtags: "fldhU3tLetuDLKZfM", // Mots-clés / Hashtags
+      link: "fldCm6tEYaW90etT9", // Lien publié
+      visuals: "fld3pbfVoTYfEHFi5", // Visuels
+      approval: "fld9mAoohLuGqSOHq", // Validation client
+      comment: "fld4iZJIi8fOr3dGZ", // Commentaires Folashade
+    },
+  },
 ]
 
 // Airtable option label → canonical label the page understands.

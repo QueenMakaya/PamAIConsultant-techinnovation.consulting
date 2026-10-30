@@ -25,6 +25,7 @@ type HostBody = {
   learned?: unknown
   kind?: unknown
   transcript?: unknown
+  thread?: unknown
 }
 
 const str = (v: unknown, max = 20000) => (typeof v === "string" ? v.slice(0, max) : "")
@@ -121,6 +122,7 @@ export async function POST(request: NextRequest) {
           themeTitle,
           question: str(body.question, 2000),
           answer: str(body.answer),
+          thread: str(body.thread),
           followUpsSoFar: strList(body.followUpsSoFar),
           followUpsLeft: typeof body.followUpsLeft === "number" ? Math.max(0, Math.min(3, body.followUpsLeft)) : 0,
           past: pastList(body.past),

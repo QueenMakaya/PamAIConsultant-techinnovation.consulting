@@ -67,7 +67,6 @@ export default function CameraScreen({
   onFilter,
   filterSupported,
   handsFree,
-  captions,
 }: {
   t: UiCopy
   format: Format
@@ -99,7 +98,6 @@ export default function CameraScreen({
   onFilter: (f: FilterSettings) => void
   filterSupported: boolean
   handsFree: boolean
-  captions: boolean
 }) {
   const { w, h } = stageSize(format)
   const fit = useFit(w / h)
@@ -138,7 +136,6 @@ export default function CameraScreen({
 
   const heard = `${view.heard} ${view.interim}`.trim()
   const heardTail = heard.length > 160 ? `…${heard.slice(-160)}` : heard
-  const showAva = live && !!view.hostLine && (view.mode === "thinking" || view.mode !== "speaking" || !captions)
 
   const act = (fn: () => void) => () => {
     setMore(false)
@@ -207,43 +204,6 @@ export default function CameraScreen({
         <div className="relative overflow-hidden rounded-[22px] bg-[var(--ava-ink)]" style={{ width: fit.size.w, height: fit.size.h }}>
           <canvas ref={canvasRef} width={w} height={h} className="block h-full w-full" />
 
-          {/* The conversation, as chat bubbles over the preview (never in the
-              recording): AVA's latest line, then what AVA hears you say. While
-              AVA speaks with captions on, the recorded caption shows her line. */}
-          {live && (showAva || listening) && (
-            <div className={cx("absolute bottom-3 left-3 flex flex-col gap-2", format === "vertical" ? "right-3" : "w-[min(560px,70%)]")}>
-              {showAva && (
-                <div className="flex items-end gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <AvaMark size={28} online={false} />
-                  <div className="max-w-[88%] rounded-[20px] rounded-bl-md bg-[var(--ava-cream)]/95 px-4 py-2.5 text-[var(--ava-ink)] shadow-lg">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ava-crimson)]" style={mono}>
-                      AVA
-                    </p>
-                    {view.mode === "thinking" ? (
-                      <span className="mt-1 flex gap-1" aria-label={t.stateThinking}>
-                        {[0, 1, 2].map((i) => (
-                          <span key={i} className="h-2 w-2 animate-bounce rounded-full bg-[var(--ava-crimson)]" style={{ animationDelay: `${i * 120}ms` }} />
-                        ))}
-                      </span>
-                    ) : (
-                      <p className="mt-0.5 text-[15px] leading-snug" style={display}>
-                        {view.hostLine}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-              {listening && (
-                <div className="ml-auto max-w-[85%] rounded-[20px] rounded-br-md bg-black/55 px-4 py-2.5 text-white backdrop-blur-md animate-in fade-in">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/50" style={mono}>
-                    {t.you}
-                  </p>
-                  <p className="mt-0.5 text-sm leading-snug text-white/90">{heardTail || <span className="italic text-white/50">{t.heardEmpty}</span>}</p>
-                </div>
-              )}
-            </div>
-          )}
-
           {phase === "countdown" && countdown > 0 && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
               <span key={countdown} className="text-[8rem] leading-none text-[#FFF8F5] animate-in zoom-in-50 fade-in duration-500" style={display}>
@@ -284,34 +244,91 @@ export default function CameraScreen({
         </div>
       </div>
 
-      {/* Controls, in the thumb zone */}
-      <div className="relative z-10 px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
-        {!live && phase !== "countdown" && devicesOn && (
-          <div className="mb-3 text-center">
-            <p className="font-semibold">{t.tapToStart}</p>
-            <p className="text-xs text-[#FFF8F5]/50">{fill(t.readyMeta, { n: total })}</p>
-            {warnings.map((wn) => (
-              <p key={wn} className="mx-auto mt-2 max-w-sm text-xs text-[var(--ava-coral)]">
-                {wn}
-              </p>
-            ))}
-          </div>
-        )}
-        {live && (
-          <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.16em] text-[#FFF8F5]/55">{stateLabel}</p>
-        )}
+      {/* The conversation, in its own box under the picture: the video stays
+          clean, nothing is drawn over it. AVA's latest line, then what she
+          hears you say. */}
+      {devicesOn && (
+        <div className="relative z-10 mx-3 mt-3 h-[136px] overflow-hidden rounded-[20px] bg-white/[0.06] px-4 py-3" aria-live="polite">
+          {live ? (
+            <div className="flex h-full flex-col gap-2">
+              <div className="flex items-start gap-2.5">
+                <AvaMark size={22} online={false} />
+                <div className="min-w-0 flex-1">
+                  <p className="flex justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.14em]" style={mono}>
+                    <span className="text-[var(--ava-coral)]">AVA</span>
+                    <span className={cx("truncate", view.pausePending ? "text-[var(--ava-coral)]" : "text-[#FFF8F5]/45")}>
+                      {view.pausePending ? t.pausePending : stateLabel}
+                    </span>
+                  </p>
+                  {view.paused ? (
+                    <p className="mt-0.5 line-clamp-2 text-sm leading-snug text-[#FFF8F5]/65">{t.pausedHint}</p>
+                  ) : view.mode === "thinking" ? (
+                    <span className="mt-2 flex gap-1" aria-label={t.stateThinking}>
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} className="h-2 w-2 animate-bounce rounded-full bg-[var(--ava-coral)]" style={{ animationDelay: `${i * 120}ms` }} />
+                      ))}
+                    </span>
+                  ) : (
+                    <p className="mt-0.5 line-clamp-2 text-[15px] leading-snug" style={display}>
+                      {view.hostLine}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {listening && (
+                <div className="flex items-start gap-2.5 border-t border-white/[0.07] pt-2 animate-in fade-in">
+                  <span className="w-[22px] shrink-0 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#FFF8F5]/45" style={mono}>
+                    {t.you}
+                  </span>
+                  <p className="line-clamp-2 min-w-0 flex-1 text-sm leading-snug text-[#FFF8F5]/85">
+                    {heardTail || <span className="italic text-[#FFF8F5]/45">{t.heardEmpty}</span>}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center overflow-y-auto text-center">
+              <p className="font-semibold">{t.tapToStart}</p>
+              <p className="text-xs text-[#FFF8F5]/50">{fill(t.readyMeta, { n: total })}</p>
+              {warnings.map((wn) => (
+                <p key={wn} className="mx-auto mt-1.5 max-w-sm text-xs text-[var(--ava-coral)]">
+                  {wn}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
+      {/* Controls, in the thumb zone */}
+      <div className="relative z-10 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
         <div className="mx-auto grid max-w-sm grid-cols-3 items-center">
-          <div className="flex justify-start">
+          <div className="flex justify-start gap-2.5">
             {live && (
-              <button
-                type="button"
-                onClick={onEnd}
-                aria-label={t.end}
-                className="flex h-14 w-14 flex-col items-center justify-center rounded-full bg-white/10 text-[#FFF8F5] backdrop-blur-md transition hover:bg-white/15 active:scale-95"
-              >
-                <Square size={18} fill="currentColor" />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={onEnd}
+                  aria-label={t.end}
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-[#FFF8F5] transition hover:bg-white/15 active:scale-95"
+                >
+                  <Square size={16} fill="currentColor" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onPause}
+                  aria-label={view.paused ? t.resume : t.pause}
+                  aria-pressed={view.paused || view.pausePending}
+                  className={cx(
+                    "flex h-12 w-12 items-center justify-center rounded-full transition active:scale-95",
+                    view.paused || view.pausePending
+                      ? "bg-[var(--ava-cream)] text-[var(--ava-ink)]"
+                      : "bg-white/10 text-[#FFF8F5] hover:bg-white/15",
+                  )}
+                >
+                  {view.paused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
+                </button>
+              </>
             )}
           </div>
 
@@ -364,7 +381,7 @@ export default function CameraScreen({
                 type="button"
                 onClick={() => setMore(true)}
                 aria-label={t.more}
-                className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 backdrop-blur-md transition hover:bg-white/15 active:scale-95"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/15 active:scale-95"
               >
                 <MoreHorizontal size={22} />
               </button>
@@ -423,7 +440,7 @@ export default function CameraScreen({
             { icon: <SkipForward size={20} />, label: t.skip, fn: onSkip, disabled: !listening },
             { icon: <Wand2 size={20} />, label: t.rephrase, fn: onRephrase, disabled: !listening },
             { icon: <Repeat size={20} />, label: t.repeat, fn: onRepeat, disabled: !listening },
-            { icon: view.paused ? <Play size={20} /> : <Pause size={20} />, label: view.paused ? t.resume : t.pause, fn: onPause, disabled: !listening && !view.paused },
+            { icon: view.paused ? <Play size={20} /> : <Pause size={20} />, label: view.paused ? t.resume : t.pause, fn: onPause, disabled: false },
             { icon: <Coffee size={20} />, label: t.minute, fn: onMinute, disabled: !listening },
           ].map((row) => (
             <button

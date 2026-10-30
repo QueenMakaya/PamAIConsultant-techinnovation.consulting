@@ -159,6 +159,8 @@ export async function decideFollowUp(input: {
   themeTitle: string
   question: string
   answer: string
+  // The exchange on this question so far ("AVA: …" / "Guest: …" lines).
+  thread?: string
   followUpsSoFar: string[]
   followUpsLeft: number
   past: PastEpisode[]
@@ -170,16 +172,24 @@ export async function decideFollowUp(input: {
 Earlier episodes (you may call back to one if it truly connects, at most once per episode):
 ${memoryBlock(input.past)}
 
-The question you asked:
+${
+    input.thread?.trim()
+      ? `The conversation on this question so far (live speech-to-text, may contain recognition errors; the guest's last turn is the one you are answering):
+${input.thread.trim()}
+`
+      : `The question you asked:
 ${input.question}
 ${input.followUpsSoFar.length ? `\nFollow-ups you already asked on it:\n${input.followUpsSoFar.map((f) => `- ${f}`).join("\n")}\n` : ""}
 What the guest answered (live speech-to-text, may contain recognition errors):
 ${input.answer || "(no words were captured)"}
-
+`
+  }
 Decide what you do next. You may ask ${input.followUpsLeft} more follow-up(s) on this question.
 - "follow_up": the answer opened a door worth one more step (a story hinted at but not told, a client mentioned but not described, a feeling named but not explored, a vague claim that deserves an example or a number). "line" is that single follow-up question.
 - "move_on": the answer is complete, the guest signalled they want to move on or stay private, or nothing was captured. "line" is a brief, warm acknowledgement of a few words that does not summarise and does not ask anything — the next question is read right after it.
-"technique" is the playbook technique your line uses (use "affirm" for a move-on acknowledgement).`
+"technique" is the playbook technique your line uses (use "affirm" for a move-on acknowledgement).
+
+A good follow-up picks up one concrete thing from the guest's last turn, in their own words (a name, a moment, a number, a feeling), and asks for the scene, the example or the "why" behind it. It is one short spoken question (at most about 20 words), never two questions, and never asks something the guest already answered above.`
 
   const response = await getClient().beta.messages.parse({
     model: MODEL,

@@ -68,7 +68,7 @@ const EMPTY_BRIEF: Brief = { name: "", business: "", offer: "", audience: "", tr
 // The spoken theme drops an "Episode 0 — " style prefix.
 const spokenTheme = (title: string) => (title.includes(" — ") ? title.split(" — ").slice(1).join(" — ") : title)
 
-const IDLE_VIEW: InterviewView = { mode: "idle", index: 0, total: 0, hostLine: "", heard: "", interim: "", paused: false, minute: false }
+const IDLE_VIEW: InterviewView = { mode: "idle", index: 0, total: 0, hostLine: "", heard: "", interim: "", paused: false, pausePending: false, minute: false }
 
 // ---- The studio -----------------------------------------------------------------
 
@@ -202,9 +202,9 @@ export default function Studio() {
         const next: Settings = {
           uiLang: stored?.uiLang ?? "fr",
           host: {
-            followUps: s.ai ? 1 : 0,
+            followUps: s.ai ? 2 : 0,
             autoAdvance: 0,
-            captions: true,
+            videoCaptions: false,
             practice: false,
             nudges: true,
             handsFree: true,
@@ -554,7 +554,7 @@ export default function Studio() {
         epLang,
         followUps: ai ? settings.host.followUps : 0,
         autoAdvance: settings.host.autoAdvance,
-        captions: settings.host.captions,
+        videoCaptions: settings.host.videoCaptions,
         practice: settings.host.practice,
         ai,
         themeTitle: topicTitle,
@@ -872,7 +872,6 @@ export default function Studio() {
           onFilter={(f) => setSettings((s) => (s ? { ...s, filter: f } : s))}
           filterSupported={filterSupported}
           handsFree={settings.host.handsFree}
-          captions={settings.host.captions}
         />
       )}
 

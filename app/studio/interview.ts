@@ -20,6 +20,8 @@ export type InterviewView = {
   heard: string
   interim: string
   paused: boolean
+  // Pause was asked while AVA was talking; it starts when she's done.
+  pausePending: boolean
   minute: boolean
 }
 
@@ -28,7 +30,8 @@ export type InterviewConfig = {
   epLang: EpisodeLang
   followUps: number
   autoAdvance: number
-  captions: boolean
+  // Burns AVA's lines into the video as captions (off: the video stays clean).
+  videoCaptions: boolean
   practice: boolean
   ai: boolean
   themeTitle: (lang: Lang) => string
@@ -82,6 +85,23 @@ const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)]
 
 const wordCount = (text: string) => text.split(/\s+/).filter(Boolean).length
 
+// Words a thought doesn't end on: after "et…", "parce que…" or "euh…" the guest
+// is searching for the rest, not done, so AVA waits longer.
+const UNFINISHED: Record<Lang, RegExp> = {
+  fr: /(?:^|\s)(euh+|heu+|hum+|hmm+|bah|ben|bon|et|mais|ou|donc|alors|puis|parce que|car|genre|en fait|du coup|comme|que|qui|où|si|quand|le|la|les|un|une|des|de|du|au|aux|à|avec|pour|dans|sur|par|sans|mon|ma|mes|son|sa|ses|notre|nos|leur|ce|cette|ces|c'est|j'ai|je|on|il|elle|nous|vous|ils|elles|très|plus|tellement|vraiment)$/i,
+  en: /(?:^|\s)(uh+|um+|er+|hmm+|and|but|or|so|because|like|then|the|a|an|to|of|with|for|in|on|at|by|from|my|your|our|their|his|her|that|which|who|when|if|i|i'm|i've|it's|we|they|really|very|just)$/i,
+}
+function endsUnfinished(text: string, lang: Lang): boolean {
+  const t = text.trim()
+  if (!t || /[.!?…]$/.test(t)) return false
+  return UNFINISHED[lang].test(t.replace(/[,;:\s-]+$/, ""))
+}
+// A gap this long inside an answer counts as one of the guest's own pauses.
+const MIN_PAUSE_MS = 700
+// How long after the last transcribed word the mic level alone may still count
+// as talking (recognition lags behind speech; steady room noise must not).
+const VOICE_TRUST_MS = 4000
+
 export class Interview {
   turns: Turn[] = []
   private index = 0
@@ -97,6 +117,10 @@ export class Interview {
   private noiseFloor = 0.02
   private nudgedStart = false
   private nudgedMid = false
+  private pauseRequested = false
+  // The guest's pauses inside their answers this episode: AVA learns their rhythm.
+  private pauses: number[] = []
+  private lastActivitySeen = 0
 
   constructor(
     private readonly cfg: InterviewConfig,
@@ -122,7 +146,7 @@ export class Interview {
     const turn: Turn = { kind, text, lang, at: this.d.clock.now(), endAt: 0, answer: "", segments: [], technique }
     this.turns.push(turn)
     const s = this.d.stage
-    s.caption = this.cfg.captions ? text : null
+    s.caption = this.cfg.videoCaptions ? text : null
     this.d.onView({ hostLine: text, heard: "", interim: "" })
     this.setMode("speaking")
     await this.d.voice.speak(text, lang)
@@ -132,10 +156,15 @@ export class Interview {
 
   private listen(lang: Lang) {
     if (this.stopping) return
+    if (this.pauseRequested) {
+      this.pauseNow(false)
+      return
+    }
     this.setMode("listening")
     this.listenStartedAt = performance.now()
     this.lastVoiceAt = 0
     this.voiceMs = 0
+    this.lastActivitySeen = 0
     this.d.listener.start(lang)
   }
 
@@ -150,6 +179,47 @@ export class Interview {
     }
     listener.segments = []
     return text
+  }
+
+  // This question's exchange so far, as a transcript for the host's brain.
+  // `pending` is what the listener holds that isn't on a turn yet.
+  private thread(pending: string): string {
+    const turns = this.turns.slice(this.questionTurn)
+    return turns
+      .flatMap((t, i) => {
+        const answer = [t.answer, i === turns.length - 1 ? pending : ""].filter(Boolean).join(" ")
+        return answer ? [`AVA: ${t.text}`, `Guest: ${answer}`] : [`AVA: ${t.text}`]
+      })
+      .join("\n")
+  }
+
+  // How long a silence ends the guest's turn right now.
+  private patienceFor(text: string, lang: Lang): number {
+    const base = this.cfg.patienceMs
+    let p = base
+    if (this.pauses.length >= 3) {
+      const sorted = [...this.pauses].sort((a, b) => a - b)
+      const usual = sorted[Math.floor(sorted.length * 0.8)]
+      p = Math.min(base + 2500, Math.max(base, usual + 600))
+    }
+    if (endsUnfinished(text, lang)) p = Math.min(p * 1.8, p + 3500)
+    return p
+  }
+
+  // Polls `work` while watching the guest: "resumed" if they started talking
+  // again, "pending" if it's still running after `ms`.
+  private async unlessResumed<T>(work: Promise<T>, resumed: () => boolean, ms: number): Promise<{ value: T } | "resumed" | "pending"> {
+    const box: { out?: { value: T } } = {}
+    void work.then((value) => {
+      box.out = { value }
+    })
+    const until = performance.now() + ms
+    while (!box.out) {
+      if (resumed()) return "resumed"
+      if (performance.now() >= until) return "pending"
+      await sleep(80)
+    }
+    return resumed() ? "resumed" : box.out
   }
 
   private answerSoFar(): string {
@@ -242,35 +312,62 @@ export class Interview {
 
   // The guest's turn is over (they tapped, or finished speaking): follow up
   // on what they said, or acknowledge it and move to the next question.
-  async next() {
+  // `auto`: AVA decided by herself that the guest was done. She then keeps
+  // listening while she thinks; if the guest picks up again, it was a pause,
+  // not the end of their turn, and she lets them talk.
+  async next(auto = false) {
     if (this.busy || this.paused || this.stopping) return
     this.busy = true
     try {
-      this.collect()
+      const listener = this.d.listener
+      const speculative = auto && listener.supported && !listener.blocked
+      const heardWords = wordCount(listener.text)
+      const resumed = () => speculative && wordCount(listener.text) > heardWords + 1
+      const pending = speculative ? listener.text : ""
+      if (!speculative) this.collect()
       const lang = this.langFor(this.index)
       const item = this.cfg.items[this.index]
-      const answer = this.answerSoFar()
+      const answer = [this.answerSoFar(), pending].filter(Boolean).join(" ")
       let transition = ""
       if (this.cfg.ai && this.cfg.followUps > 0 && answer.trim().length > 12) {
         this.setMode("thinking")
-        const { result: res, filled } = await this.withFiller(
-          lang,
-          this.d.callHost<{ decision?: { action: string; technique?: string; line: string } }>(
-            {
-              action: "followup",
-              lang,
-              themeTitle: this.cfg.themeTitle(lang),
-              question: item.text[lang],
-              answer,
-              followUpsSoFar: this.followUps,
-              followUpsLeft: this.cfg.followUps - this.followUps.length,
-              past: this.cfg.past,
-              brief: this.cfg.brief,
-              learned: this.cfg.learned,
-            },
-            15000,
-          ),
+        const call = this.d.callHost<{ decision?: { action: string; technique?: string; line: string } }>(
+          {
+            action: "followup",
+            lang,
+            themeTitle: this.cfg.themeTitle(lang),
+            question: item.text[lang],
+            answer,
+            thread: this.thread(pending),
+            followUpsSoFar: this.followUps,
+            followUpsLeft: this.cfg.followUps - this.followUps.length,
+            past: this.cfg.past,
+            brief: this.cfg.brief,
+            learned: this.cfg.learned,
+          },
+          15000,
         )
+        let res: Awaited<typeof call>
+        let filled = false
+        if (speculative) {
+          const first = await this.unlessResumed(call, resumed, FILLER_AFTER_MS)
+          if (first === "resumed") {
+            this.setMode("listening")
+            return
+          }
+          this.collect()
+          if (first === "pending") {
+            this.setMode("speaking")
+            await this.d.voice.speak(pick(FILLERS[lang]), lang)
+            this.setMode("thinking")
+            filled = true
+            res = await call
+          } else {
+            res = first.value
+          }
+        } else {
+          ;({ result: res, filled } = await this.withFiller(lang, call))
+        }
         const decision = res?.decision
         if (decision?.action === "follow_up" && decision.line && this.followUps.length < this.cfg.followUps) {
           this.followUps.push(decision.line)
@@ -281,8 +378,9 @@ export class Interview {
         }
         // A filler already acknowledged the answer; don't stack a second one.
         transition = filled ? "" : (decision?.line ?? "")
-      } else if (answer.trim()) {
-        transition = pick(ACKS[lang])
+      } else {
+        if (speculative) this.collect()
+        if (answer.trim()) transition = pick(ACKS[lang])
       }
       await this.advance(transition)
     } finally {
@@ -340,22 +438,34 @@ export class Interview {
     }
   }
 
+  // Pause works at any moment: if AVA is talking or thinking, the pause starts
+  // as soon as she's done (tap again to cancel it).
   togglePause(minute = false) {
-    if (this.busy || this.stopping) return
-    if (!this.paused) {
-      this.collect()
-      this.paused = true
-      this.d.recorder.pause()
-      this.d.clock.pause()
-      this.setMode("idle")
-      this.d.onView({ paused: true, minute })
-    } else {
+    if (this.stopping) return
+    if (this.paused) {
       this.paused = false
       this.d.recorder.resume()
       this.d.clock.resume()
       this.d.onView({ paused: false, minute: false })
       this.listen(this.langFor(this.index))
+      return
     }
+    if (this.busy) {
+      this.pauseRequested = !this.pauseRequested
+      this.d.onView({ pausePending: this.pauseRequested })
+      return
+    }
+    this.pauseNow(minute)
+  }
+
+  private pauseNow(minute: boolean) {
+    this.pauseRequested = false
+    this.collect()
+    this.paused = true
+    this.d.recorder.pause()
+    this.d.clock.pause()
+    this.setMode("idle")
+    this.d.onView({ paused: true, pausePending: false, minute })
   }
 
   async needMinute() {
@@ -375,6 +485,7 @@ export class Interview {
     if (this.finishing) return
     this.collect()
     this.d.voice.stop()
+    this.pauseRequested = false
     if (this.paused) {
       this.paused = false
       this.d.recorder.resume()
@@ -450,6 +561,7 @@ export class Interview {
   tick(now: number) {
     if (this.d.stage.hostMode !== "listening" || this.busy || this.paused || this.stopping) return
     const listener = this.d.listener
+    const lang = this.langFor(this.index)
 
     // Speech activity: the transcript when the browser transcribes, the mic
     // level otherwise — against a noise floor learned while listening, so a
@@ -463,9 +575,21 @@ export class Interview {
       this.lastVoiceAt = now
     }
     const spoken = transcribing ? listener.heardAnything : this.voiceMs > 600
-    const lastActivity = transcribing ? Math.max(this.listenStartedAt, listener.lastHeardAt) : Math.max(this.listenStartedAt, this.lastVoiceAt)
+    // Once the guest is talking, the mic level also counts for a few seconds
+    // past the last transcribed word: recognition lags behind the voice.
+    const voiceTrusted = this.lastVoiceAt && this.lastVoiceAt - listener.lastHeardAt < VOICE_TRUST_MS ? this.lastVoiceAt : 0
+    const lastActivity = transcribing
+      ? Math.max(this.listenStartedAt, listener.lastHeardAt, spoken ? voiceTrusted : 0)
+      : Math.max(this.listenStartedAt, this.lastVoiceAt)
     const silence = now - lastActivity
     const words = transcribing ? wordCount(listener.text) + wordCount(this.answerSoFar()) : Math.round(this.voiceMs / 400)
+
+    // Learn the guest's own pauses: a gap that ended because they went on.
+    if (spoken && this.lastActivitySeen && lastActivity - this.lastActivitySeen >= MIN_PAUSE_MS) {
+      this.pauses.push(lastActivity - this.lastActivitySeen)
+      if (this.pauses.length > 30) this.pauses.shift()
+    }
+    this.lastActivitySeen = spoken ? lastActivity : 0
 
     if (!spoken) {
       if (silence < START_SILENCE_MS) return
@@ -475,11 +599,12 @@ export class Interview {
     }
 
     if (this.cfg.handsFree) {
-      if (words >= REAL_ANSWER_WORDS && silence >= this.cfg.patienceMs) {
-        void this.next()
-      } else if (words < REAL_ANSWER_WORDS && silence >= SHORT_ANSWER_SILENCE_MS) {
+      const patience = this.patienceFor(transcribing ? listener.text : "", lang)
+      if (words >= REAL_ANSWER_WORDS && silence >= patience) {
+        void this.next(true)
+      } else if (words < REAL_ANSWER_WORDS && silence >= Math.max(SHORT_ANSWER_SILENCE_MS, patience)) {
         if (this.cfg.nudges && !this.nudgedMid) void this.nudge("mid")
-        else void this.next()
+        else void this.next(true)
       }
       return
     }
@@ -490,6 +615,6 @@ export class Interview {
       return
     }
     const wait = this.cfg.autoAdvance
-    if (wait > 0 && silence > wait * 1000) void this.next()
+    if (wait > 0 && silence > wait * 1000) void this.next(true)
   }
 }

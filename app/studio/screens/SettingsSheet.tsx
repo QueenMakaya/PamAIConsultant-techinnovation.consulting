@@ -11,7 +11,7 @@ import AvatarPreview from "./AvatarPreview"
 export type HostSettings = {
   followUps: number
   autoAdvance: number
-  captions: boolean
+  videoCaptions: boolean
   handsFree: boolean
   patience: "fast" | "normal" | "patient"
   practice: boolean
@@ -151,7 +151,7 @@ export default function SettingsSheet({
               <Toggle label={t.nudges} checked={host.nudges} onChange={(v) => onHost({ nudges: v })} />
               <p className="-mt-1 text-xs text-[var(--ava-ink)]/45">{t.nudgesHint}</p>
             </div>
-            <Toggle label={t.captions} checked={host.captions} onChange={(v) => onHost({ captions: v })} />
+            <Toggle label={t.captions} checked={host.videoCaptions} onChange={(v) => onHost({ videoCaptions: v })} />
             <Toggle label={t.practice} checked={host.practice} onChange={(v) => onHost({ practice: v })} />
           </div>
         </section>

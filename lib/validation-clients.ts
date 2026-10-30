@@ -174,6 +174,32 @@ const CLIENTS: ClientDef[] = [
       comment: "fld4iZJIi8fOr3dGZ", // Commentaires Folashade
     },
   },
+  {
+    // Centre Holistic Ethnika "Calendrier".
+    slug: "ethnika",
+    tokenEnv: "ETHNIKA_VALIDATION_TOKEN",
+    base: () => "appbejIYzqSPcOj5W",
+    table: () => "tbls1FHLh2VVlFHTU",
+    // Once a post is scheduled/published it leaves the validation view; only
+    // posts still needing validation (Idée, À produire, Prêt) stay visible.
+    hideWhenScheduled: {
+      statusFieldId: "fldcbRVOHHYU05IJ8", // Statut production
+      excludeOptionIds: ["selkSWPEvHDl9DNDQ", "selEAaywNLm0IqwI0"], // Programmé, Publié
+      excludeOptionNames: ["Programmé", "Publié"],
+    },
+    fields: {
+      title: "fldzl7jGA6Yo1hIaW", // Titre
+      date: "fldubFvQVFkeoXVw7", // Date
+      channel: "flddnT0zNeqVnqOdm", // Plateforme
+      format: "fldO05HS5GOi3HNSt", // Format
+      caption: "fldl4K9WWL9vr1Zc3", // Légende proposée
+      hashtags: "fldks2mMMs8EZ4qc3", // Mots-clés / Hashtags
+      link: "fldFZJmxqwoHTI5cs", // Lien publié
+      visuals: "fldIDsCmjKg1LFfZw", // Visuels
+      approval: "fldYoBPH4AD7AUSj9", // Validation client
+      comment: "fldF3CxiiFtQwhLCn", // Commentaires Ethnika
+    },
+  },
 ]
 
 // Airtable option label → canonical label the page understands.

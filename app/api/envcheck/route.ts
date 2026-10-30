@@ -16,6 +16,7 @@ async function selfTest() {
   const claude: Record<string, unknown> = {
     keyLooksRight: anthropicKey.trim().startsWith("sk-ant-"),
     keyHadSpaces: anthropicKey !== anthropicKey.trim(),
+    workspaceIdPresent: !!process.env.ANTHROPIC_WORKSPACE_ID?.trim(),
   }
   try {
     const res = await getClient().beta.messages.create({

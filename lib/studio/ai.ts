@@ -20,7 +20,12 @@ export const FALLBACK: { betas: Anthropic.Beta.AnthropicBeta[]; fallbacks: "defa
 let client: Anthropic | null = null
 export function getClient(): Anthropic {
   // Trimmed: a key pasted with a trailing newline or space is rejected as invalid.
-  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY?.trim() })
+  // A key that isn't scoped to a workspace must name one on every request.
+  const workspace = process.env.ANTHROPIC_WORKSPACE_ID?.trim()
+  client ??= new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY?.trim(),
+    defaultHeaders: workspace ? { "anthropic-workspace-id": workspace } : undefined,
+  })
   return client
 }
 

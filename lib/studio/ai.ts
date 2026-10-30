@@ -8,23 +8,24 @@ import type { Brief, ContentPack, HostDecision, Lang, PastEpisode, StudioProfile
 // like a conversation, so they run at low effort with short outputs; planning
 // and the post-episode content pack have time and run higher.
 
-const MODEL = "claude-opus-5-5"
+export const MODEL = "claude-opus-5-5"
 
 // On a safety decline the API re-runs the request on Anthropic's recommended
 // fallback model instead of returning the refusal.
-const FALLBACK: { betas: Anthropic.Beta.AnthropicBeta[]; fallbacks: "default" } = {
+export const FALLBACK: { betas: Anthropic.Beta.AnthropicBeta[]; fallbacks: "default" } = {
   betas: ["server-side-fallback-2026-07-01"],
   fallbacks: "default",
 }
 
 let client: Anthropic | null = null
-function getClient(): Anthropic {
-  client ??= new Anthropic()
+export function getClient(): Anthropic {
+  // Trimmed: a key pasted with a trailing newline or space is rejected as invalid.
+  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY?.trim() })
   return client
 }
 
 export function aiConfigured(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY
+  return !!process.env.ANTHROPIC_API_KEY?.trim()
 }
 
 const LANG_NAME: Record<Lang, string> = { fr: "French", en: "English" }

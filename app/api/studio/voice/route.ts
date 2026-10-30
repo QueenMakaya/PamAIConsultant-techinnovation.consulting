@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (!studio) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
   }
-  const apiKey = process.env.ELEVENLABS_API_KEY
+  const apiKey = process.env.ELEVENLABS_API_KEY?.trim()
   if (!studio.voiceId || !apiKey) {
     return NextResponse.json({ ok: false, error: "voice_not_configured" }, { status: 503 })
   }

@@ -226,6 +226,31 @@ const CLIENTS: ClientDef[] = [
       comment: "fldLXjWkXpsSgQJ7O", // Commentaires CUMBA
     },
   },
+  {
+    // Soleil Commun (Pam's own solar referral venture) "Calendrier" in
+    // "Soleil Commun — Business Hub (solaire Québec)". Pam is the approver.
+    slug: "soleil",
+    tokenEnv: "SOLAIRE_VALIDATION_TOKEN",
+    base: () => "app9VN2Psgpctl9dE",
+    table: () => "tbl4QPyBQp2n7Dfpn",
+    hideWhenScheduled: {
+      statusFieldId: "fld34VHIQCl9fzIBu", // Statut production
+      excludeOptionIds: ["selFpzBjkOELhVXWf", "selnc7JaFOOy7bm2U"], // Programmé, Publié
+      excludeOptionNames: ["Programmé", "Publié"],
+    },
+    fields: {
+      title: "fldd046n6YLYzPAyj", // Titre
+      date: "fldu4kWFz1NB3jYvt", // Date
+      channel: "fldaepq3V5h1o3lzk", // Plateforme
+      format: "fldQJyLyBWfFT9NEB", // Format
+      caption: "fld5VaHwWkTFM9Tt2", // Légende proposée
+      hashtags: "fldvYUCTFbvoDx8cR", // Mots-clés / Hashtags
+      link: "fld14LVFIhkBRks0y", // Lien publié
+      visuals: "fldnPeZ4A5v6SMZCp", // Visuels
+      approval: "fldwvRlgWRF0VaCZQ", // Validation Pam
+      comment: "fldDXJNHmIBY1qG7U", // Commentaires Pam
+    },
+  },
 ]
 
 // Airtable option label → canonical label the page understands.

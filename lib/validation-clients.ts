@@ -200,6 +200,32 @@ const CLIENTS: ClientDef[] = [
       comment: "fldF3CxiiFtQwhLCn", // Commentaires Ethnika
     },
   },
+  {
+    // Miboty (Les Soins Miboty Inc.) "Calendrier" in "Miboty — Client Hub".
+    slug: "miboty",
+    tokenEnv: "MIBOTY_VALIDATION_TOKEN",
+    base: () => "appO6uZiL4CL9qvqs",
+    table: () => "tblPwjYmhwf7Q7TlQ",
+    // Once a post is scheduled/published it leaves the validation view; only
+    // posts still needing validation (Idée, À produire, Prêt) stay visible.
+    hideWhenScheduled: {
+      statusFieldId: "fldfXULlfGApdBb2W", // Statut production
+      excludeOptionIds: ["selEebfq6tRHRzDtR", "selQ3UYK5EHrv7Pv3"], // Programmé, Publié
+      excludeOptionNames: ["Programmé", "Publié"],
+    },
+    fields: {
+      title: "flddFs374sv3kk4UZ", // Titre
+      date: "fldyKCIIKN9dsrsCI", // Date
+      channel: "fldnS2KRBURxd9GTC", // Plateforme
+      format: "fldxQJojp2LkeInVe", // Format
+      caption: "fldPfkcqSFZoXukHI", // Légende proposée
+      hashtags: "fldCWtjjVaei9N4SE", // Mots-clés / Hashtags
+      link: "fldLsg5S6C1ZmN90O", // Lien publié
+      visuals: "fldEMmULJ6Bf8fNVX", // Visuels
+      approval: "fldclIfAMWNe9CkMs", // Validation CUMBA
+      comment: "fldLXjWkXpsSgQJ7O", // Commentaires CUMBA
+    },
+  },
 ]
 
 // Airtable option label → canonical label the page understands.

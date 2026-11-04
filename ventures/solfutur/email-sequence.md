@@ -1,6 +1,6 @@
 # Welcome sequence (Mailchimp, 5 emails)
 
-Audience: **Soleil Commun**. Only contacts whose `Consentement infolettre` is
+Audience: **Solfutur**. Only contacts whose `Consentement infolettre` is
 checked in Airtable › Leads enter it. Footer on every email: sender identity,
 mailing address, one-click unsubscribe (CASL).
 
@@ -18,7 +18,7 @@ mailing address, one-click unsubscribe (CASL).
 
 Bonjour [Prénom],
 
-Merci d'avoir fait votre estimation sur Soleil Commun ☀️
+Merci d'avoir fait votre estimation sur Solfutur ☀️
 
 Votre résultat est un point de départ : taille suggérée, subvention possible et
 délai de retour approximatif. Ce qu'il ne dit pas encore : l'ombre sur votre
@@ -27,7 +27,7 @@ rôle de la visite d'un installateur licencié RBQ, quand vous serez prêt·e.
 
 Dans les prochains jours, je vous envoie l'essentiel à connaître avant de signer quoi que ce soit.
 
-Pam, Soleil Commun
+Pam, Solfutur
 
 ### 2. La subvention LogisVert en 5 points
 
@@ -63,6 +63,6 @@ une station portable peut suffire.
 Si vous visez une installation ce printemps, c'est maintenant qu'il faut
 demander les soumissions : les installateurs remplissent leur calendrier en hiver.
 
-[Bouton : Recevoir mes soumissions gratuites → techinnovation.consulting/solaire]
+[Bouton : Recevoir mes soumissions gratuites → solfutur.ca]
 
 Vous restez libre : aucune visite sans votre accord, jamais de porte-à-porte.

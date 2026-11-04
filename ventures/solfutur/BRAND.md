@@ -1,4 +1,4 @@
-# Soleil Commun: brand file (DRAFT)
+# Solfutur: brand file (DRAFT)
 
 > Draft for Pam's approval (Airtable step 06). This is the source of truth for
 > the `content-calendar` and `brand-post-visuals` skills: update it here first.
@@ -7,9 +7,10 @@
 
 | | |
 |---|---|
-| Name | **Soleil Commun** (working name, to confirm at the REQ) |
-| Tagline | *Le solaire au Québec, expliqué entre voisins.* |
+| Name | **Solfutur** (same in French and English). Registered name: **Énergie Solfutur** (French generic term required by the Charter of the French language; confirm at the REQ) |
+| Tagline | **« Le solaire, vérifié. » / "Solar, verified."** Secondary: *Le solaire au Québec, expliqué entre voisins.* |
 | Operated by | Tech Innovation Consulting (Pam) |
+| Domains | `solfutur.ca` (main), `solfutur.com` (redirects to .ca) |
 | What we are | An independent community and referral service. Not Hydro-Québec, not an installer. |
 | Promise | Honest numbers, vetted RBQ installers, zero door-to-door. |
 | Language | French first, English second line where useful (Montréal audience). |

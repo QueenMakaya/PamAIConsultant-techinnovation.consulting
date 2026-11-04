@@ -1,4 +1,4 @@
-// Soleil Commun: rough residential solar estimate for Quebec homes.
+// Solfutur: rough residential solar estimate for Quebec homes.
 // Shared by the /solaire page (live preview) and /api/solar-lead (stored with
 // the lead), so both always agree. Every number here is a stated assumption,
 // shown to the visitor as such. Update them when Hydro-Québec rates or the

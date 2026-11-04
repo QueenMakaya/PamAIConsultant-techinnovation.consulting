@@ -88,7 +88,7 @@ export default function SolarLanding() {
         <div className="flex items-center gap-2.5">
           <span aria-hidden className="inline-block h-7 w-7 rounded-full" style={{ background: SUN }} />
           <span className="text-lg font-semibold" style={{ fontFamily: "var(--font-fraunces), serif" }}>
-            Soleil Commun
+            Solfutur
           </span>
         </div>
         <a href="#estimation" className="rounded-full px-4 py-2 text-sm font-semibold text-white" style={{ background: NAVY }}>
@@ -100,7 +100,7 @@ export default function SolarLanding() {
       <section className="grid gap-8 py-8 sm:py-14 md:grid-cols-[1.2fr_1fr] md:items-center">
         <div>
           <p className="mb-3 text-sm font-semibold uppercase tracking-wider" style={{ color: LEAF }}>
-            Communauté solaire du Québec
+            Le solaire, vérifié · Solar, verified
           </p>
           <h1
             className="text-4xl leading-tight font-semibold sm:text-5xl"
@@ -295,7 +295,7 @@ export default function SolarLanding() {
             <label className="flex gap-3 text-sm sm:col-span-2">
               <input type="checkbox" name="consentContact" required className="mt-1 h-4 w-4 accent-[#2F7D5B]" />
               <span>
-                J'accepte que Soleil Commun me contacte et transmette ma demande à un maximum de 3 installateurs
+                J'accepte que Solfutur me contacte et transmette ma demande à un maximum de 3 installateurs
                 partenaires de ma région, uniquement pour me préparer une soumission. *
               </span>
             </label>
@@ -339,7 +339,7 @@ export default function SolarLanding() {
 
       <footer className="mt-12 text-xs leading-relaxed text-[#1B2A3A]/60">
         <p>
-          Soleil Commun est un service de référencement indépendant opéré par Tech Innovation Consulting. Nous ne sommes
+          Solfutur (Énergie Solfutur) est un service de référencement indépendant opéré par Tech Innovation Consulting. Nous ne sommes
           ni Hydro-Québec ni un installateur, et nous ne vendons pas d'équipement. Les liens vers certains produits
           peuvent être des liens d'affiliation. Vos renseignements sont traités selon la Loi 25 ; pour y accéder ou les
           faire supprimer, écrivez-nous.

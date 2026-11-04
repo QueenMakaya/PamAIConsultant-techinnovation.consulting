@@ -1,7 +1,7 @@
-# Soleil Commun: launch playbook
+# Solfutur: launch playbook
 
-Pam's own revenue venture, launched 2026-11-04. **Soleil Commun** is a working
-name (step 01 in Airtable: check the REQ and the domain before printing anything).
+Pam's own revenue venture, launched 2026-11-04. Brand: **Solfutur** (one name in
+French and English); registered name **Énergie Solfutur**. Main domain `solfutur.ca`.
 
 **One-line model:** a Quebec solar community that educates homeowners honestly,
 captures quote requests online, and refers them to licensed (RBQ) installers
@@ -9,8 +9,8 @@ for a commission. Product affiliate links bring in side revenue while installs r
 
 | | |
 |---|---|
-| Airtable | **Soleil Commun — Business Hub (solaire Québec)** `app9VN2Psgpctl9dE`: https://airtable.com/app9VN2Psgpctl9dE |
-| Landing page + estimator | `https://techinnovation.consulting/solaire` (code: `app/solaire/`, `lib/solar-estimate.ts`) |
+| Airtable | **Solfutur — Business Hub (solaire Québec)** `app9VN2Psgpctl9dE`: https://airtable.com/app9VN2Psgpctl9dE |
+| Landing page + estimator | `https://solfutur.ca` (code: `app/solaire/`, `lib/solar-estimate.ts`) |
 | Lead API | `POST /api/solar-lead` → Airtable `Leads` (`app/api/solar-lead/route.ts`) |
 | Content approval | `https://techinnovation.consulting/validation?token=<SOLAIRE_VALIDATION_TOKEN>` |
 | Brand | [`BRAND.md`](./BRAND.md) |
@@ -92,7 +92,7 @@ source of truth, `/validation` is the approval gate, Metricool publishes.
       Commissions, Lancement) and a 21-step launch checklist
 - [x] `/solaire` page: estimator, lead form with consent, honeypot, UTM tracking
 - [x] `/api/solar-lead` writing scored leads to Airtable
-- [x] Soleil Commun registered as a `/validation` client
+- [x] Solfutur registered as a `/validation` client
 - [x] 20-post launch calendar (Nov 9 – Dec 6) in Airtable, `À valider`
 - [x] Airtable automation "Nouveau lead solaire → alerte courriel à Pam" (saved as a draft: turn it on at https://airtable.com/app9VN2Psgpctl9dE/wflpStcS061cTzdQL)
 - [ ] Your 4 go-live actions below
@@ -101,7 +101,7 @@ source of truth, `/validation` is the approval gate, Metricool publishes.
 
 1. Merge the branch `claude/modest-ptolemy-kw2ox6` so `/solaire` deploys.
 2. Airtable → Builder hub → Personal access tokens: add the base
-   **Soleil Commun — Business Hub** to the token stored as `AIRTABLE_TOKEN` in
+   **Solfutur — Business Hub** to the token stored as `AIRTABLE_TOKEN` in
    Vercel (read + write records).
 3. Vercel → Environment Variables (Production): add `SOLAIRE_VALIDATION_TOKEN`
    (any long random string), redeploy, open `/validation?token=…`.

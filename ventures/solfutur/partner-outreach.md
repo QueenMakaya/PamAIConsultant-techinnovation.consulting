@@ -32,7 +32,7 @@ before December 4; then 1–2 per added region.
 
 Bonjour [PRÉNOM],
 
-Je lance Soleil Commun, une communauté québécoise qui aide les propriétaires à
+Je lance Solfutur, une communauté québécoise qui aide les propriétaires à
 comprendre le solaire et la nouvelle subvention LogisVert, avec des chiffres honnêtes.
 
 Nos membres font leur estimation en ligne, puis demandent eux-mêmes des
@@ -44,7 +44,7 @@ zéro frais fixe, des propriétaires déjà informés.
 Auriez-vous 15 minutes cette semaine ?
 
 Pam Alfred
-Soleil Commun · Tech Innovation Consulting
+Solfutur · Tech Innovation Consulting
 
 ### Email 2 (day 4): proof
 

@@ -14,7 +14,7 @@ import {
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-// Soleil Commun: Business Hub › Leads. IDs are not secret; the token is.
+// Solfutur: Business Hub › Leads. IDs are not secret; the token is.
 const BASE = process.env.SOLAIRE_AIRTABLE_BASE || "app9VN2Psgpctl9dE"
 const TABLE = "tblcMnYF6NykmPQOD"
 const F = {
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
               [F.subsidy]: est.subsidy,
               [F.score]: score,
               [F.status]: score >= QUALIFIED_SCORE ? "Qualifié" : "Nouveau",
-              [F.source]: lead.source || "techinnovation.consulting/solaire",
+              [F.source]: lead.source || "solfutur.ca",
               [F.message]: lead.message,
               [F.consentContact]: true,
               [F.consentNewsletter]: lead.consentNewsletter,

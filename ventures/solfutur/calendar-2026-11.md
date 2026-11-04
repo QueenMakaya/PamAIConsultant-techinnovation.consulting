@@ -1,6 +1,6 @@
-# Soleil Commun: launch calendar, Nov 9 – Dec 4, 2026 (review copy)
+# Solfutur: launch calendar, Nov 9 – Dec 4, 2026 (review copy)
 
-Source of truth: Airtable **Soleil Commun — Business Hub** › `Calendrier`
+Source of truth: Airtable **Solfutur — Business Hub** › `Calendrier`
 (`app9VN2Psgpctl9dE` / `tbl4QPyBQp2n7Dfpn`). Full captions, shot notes and
 hashtags are there. All 20 rows start at `Validation Pam = À valider`.
 
@@ -9,7 +9,7 @@ hashtags are there. All 20 rows start at `Validation Pam = À valider`.
 
 | # | Date | Platform | Format | Topic | Gate before publishing |
 |---|---|---|---|---|---|
-| 01 | Mon 11-09 | Instagram | Carrousel | Bienvenue chez Soleil Commun | Accounts created |
+| 01 | Mon 11-09 | Instagram | Carrousel | Bienvenue chez Solfutur | Accounts created |
 | 02 | Mon 11-09 | FB Group | Post | Ouverture du groupe : présentez-vous | Group created |
 | 03 | Tue 11-10 | TikTok | Vidéo | La subvention en 30 secondes | |
 | 04 | Wed 11-11 | Facebook | Post | LogisVert en 5 points | |

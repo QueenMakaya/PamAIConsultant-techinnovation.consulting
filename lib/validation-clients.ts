@@ -227,8 +227,8 @@ const CLIENTS: ClientDef[] = [
     },
   },
   {
-    // Soleil Commun (Pam's own solar referral venture) "Calendrier" in
-    // "Soleil Commun — Business Hub (solaire Québec)". Pam is the approver.
+    // Solfutur (Pam's own solar referral venture) "Calendrier" in
+    // "Solfutur — Business Hub (solaire Québec)". Pam is the approver.
     slug: "soleil",
     tokenEnv: "SOLAIRE_VALIDATION_TOKEN",
     base: () => "app9VN2Psgpctl9dE",

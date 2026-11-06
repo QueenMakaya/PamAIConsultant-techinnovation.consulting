@@ -1,7 +1,6 @@
 "use client"
 
-import { useMemo, useState, type FormEvent, type ReactNode } from "react"
-import { useSearchParams } from "next/navigation"
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react"
 import {
   ASSUMPTIONS,
   HOUSING_TYPES,
@@ -36,8 +35,13 @@ const inputCls =
   "w-full rounded-xl border border-[#1B2A3A]/20 bg-white px-3.5 py-2.5 text-base outline-none transition focus:border-[#F2A516] focus:ring-2 focus:ring-[#F2A516]/30"
 
 export default function SolarLanding() {
-  const params = useSearchParams()
-  const source = [params.get("utm_source"), params.get("utm_campaign")].filter(Boolean).join(" / ")
+  // Read UTM tags after mount (not via useSearchParams) so the page is fully
+  // server-rendered: search engines and link previews see the real content.
+  const [source, setSource] = useState("")
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setSource([params.get("utm_source"), params.get("utm_campaign")].filter(Boolean).join(" / "))
+  }, [])
 
   const [bill, setBill] = useState(2400)
   const [orientation, setOrientation] = useState("Sud")

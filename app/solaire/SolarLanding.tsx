@@ -113,20 +113,6 @@ export default function SolarLanding() {
             la peine chez vous, avec des chiffres honnêtes, et on vous met en contact avec des installateurs licenciés
             RBQ. Gratuit, sans engagement, et jamais de porte-à-porte.
           </p>
-          <ul className="mt-6 grid gap-2 text-[15px]">
-            {[
-              "Estimation instantanée de la taille du système et de la subvention",
-              "Installateurs vérifiés : licence RBQ, admissibles LogisVert",
-              "Vous restez maître : aucune visite sans votre demande",
-            ].map((item) => (
-              <li key={item} className="flex gap-2.5">
-                <span aria-hidden style={{ color: LEAF }}>
-                  ✓
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
         </div>
         <div className="rounded-3xl p-6 text-white shadow-lg" style={{ background: NAVY }}>
           <p className="text-sm text-white/70">Subvention Hydro-Québec (LogisVert, volet solaire)</p>
@@ -141,6 +127,29 @@ export default function SolarLanding() {
           </p>
           <p className="mt-3 text-xs text-white/60">Vérifiez toujours les conditions à jour sur hydroquebec.com.</p>
         </div>
+
+        {/* Promises: pill badges, not links. 3 across from tablet up, stacked on phones. */}
+        <ul className="grid gap-3 sm:grid-cols-3 md:col-span-2">
+          {[
+            "Estimation et subvention instantanées",
+            "Installateurs vérifiés RBQ",
+            "Aucune visite sans votre demande",
+          ].map((item) => (
+            <li
+              key={item}
+              className="flex items-center justify-center gap-2.5 rounded-full bg-white px-4 py-3 text-center text-sm lg:whitespace-nowrap lg:text-[15px] font-semibold shadow-sm ring-1 ring-[#1B2A3A]/10"
+            >
+              <span
+                aria-hidden
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs text-white"
+                style={{ background: LEAF }}
+              >
+                ✓
+              </span>
+              {item}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Estimator */}

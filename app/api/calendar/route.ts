@@ -144,6 +144,17 @@ function isHiddenByStatus(record: AirtableRecord, client: ValidationClient): boo
   return (id != null && cfg.excludeOptionIds.includes(id)) || cfg.excludeOptionNames.includes(name)
 }
 
+// Opt-in per client (ValidationClient.hideOverdue): a post dated before today
+// (Montréal time) is hidden. Airtable dates come back as "YYYY-MM-DD", so a plain
+// string comparison works; posts without a date stay visible.
+function isOverdue(record: AirtableRecord, client: ValidationClient): boolean {
+  if (!client.hideOverdue) return false
+  const date = asString(record.fields[client.fields.date]).slice(0, 10)
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)) return false
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto" }).format(new Date())
+  return date < today
+}
+
 function mapRecord(record: AirtableRecord, client: ValidationClient): Post {
   const FIELD = client.fields
   const f = record.fields
@@ -238,7 +249,7 @@ export async function GET(request: NextRequest) {
     } while (offset)
 
     const posts = records
-      .filter((record) => !isHiddenByStatus(record, client))
+      .filter((record) => !isHiddenByStatus(record, client) && !isOverdue(record, client))
       .map((record) => mapRecord(record, client))
     const beats = groupIntoBeats(posts)
 

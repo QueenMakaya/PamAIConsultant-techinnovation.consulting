@@ -44,6 +44,9 @@ export type ValidationClient = {
   fields: ClientFields
   approvalLabels: ApprovalLabels
   hideWhenScheduled?: HideWhenScheduled
+  // Opt-in, per-client: drop posts whose date is before today (Montréal time),
+  // so overdue posts no longer clutter the validation view.
+  hideOverdue?: boolean
 }
 
 type ClientDef = Omit<ValidationClient, "base" | "table" | "view" | "approvalLabels"> & {
@@ -86,9 +89,10 @@ const CLIENTS: ClientDef[] = [
     // posts still needing validation (Idée, Prêt, À produire) stay visible.
     hideWhenScheduled: {
       statusFieldId: "fld6MsgbL1yeBwGqS", // Statut production
-      excludeOptionIds: ["selIpAjxIUlvid2gN", "selUx2Hhd5pyPrgbA"], // Programmé, Publié
-      excludeOptionNames: ["Programmé", "Publié"],
+      excludeOptionIds: ["selIpAjxIUlvid2gN", "selUx2Hhd5pyPrgbA", "selvKa5QDFcrWizSc"], // Programmé, Publié, Annulé
+      excludeOptionNames: ["Programmé", "Publié", "Annulé"],
     },
+    hideOverdue: true,
     fields: {
       title: "fld472KyjutpnHp6y", // Titre
       date: "fldtlTsO92yWEcoFI", // Date
@@ -273,6 +277,7 @@ export function resolveClient(token: unknown): ValidationClient | null {
         fields: client.fields,
         approvalLabels: client.approvalLabels ?? DEFAULT_LABELS,
         hideWhenScheduled: client.hideWhenScheduled,
+        hideOverdue: client.hideOverdue,
       }
     }
   }

@@ -64,6 +64,33 @@ If the approval options are spelled differently (e.g. `✅ Approuvé`,
 Preview without sending (nothing is sent unless `&send=1`):
 `/api/automations/daily?key=<ADMIN_TOKEN>` (add `&monday=1` to simulate a Monday).
 
+## Automatic scheduling in Metricool
+
+The scheduled task **Content Ops · Metricool (posts approuvés)** runs every day
+at 17:41 (Montréal). For every active business whose registry row has a
+**Marque Metricool** (the Metricool blogId), it schedules the approved posts
+(auto-publish), marks them Programmé in Airtable and emails Pam a summary.
+Les Mounas and Almost Human are left out on purpose: their own night desks
+already schedule them. Leave their Marque Metricool empty.
+
+| Business | Metricool blogId |
+|---|---|
+| CHAFRIC | 7467081 |
+| OK Pneus Terrebonne | 7903563 |
+| Studio IAM Beauté | 8001218 |
+| Black Wealth Crypto | 7546811 |
+| Tech Innovation Consulting | 7436274 |
+| AVA Studio Podcast | 8011661 |
+
+No Metricool brand yet: Anny's K, ROOMA, Folashade, Ethnika, Miboty, Solfutur.
+To add one: connect the brand in Metricool, then put its blogId in the
+registry.
+
+It skips posts that are less than 2 hours away, already past, missing a
+visual, or on a network not connected in Metricool (Blog, Infolettre, Skool
+and WhatsApp stay manual), and lists them in the email. Dry run: ask Claude
+to fire the task with the text "TEST À BLANC".
+
 ## Vercel environment variables
 
 | Variable | Purpose |

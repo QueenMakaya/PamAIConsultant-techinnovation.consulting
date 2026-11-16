@@ -242,10 +242,14 @@ export default function AdminDashboard() {
   const [data, setData] = useState<Overview | null>(null)
   const [filter, setFilter] = useState<Filter>("all")
 
-  const load = useCallback(async () => {
+  // `fresh` bypasses the server's Airtable cache; only the refresh button uses
+  // it, so opening the dashboard doesn't spend API calls.
+  const load = useCallback(async (fresh = false) => {
     setState("loading")
     try {
-      const res = await fetch(`/api/admin/overview?key=${encodeURIComponent(key)}`, { cache: "no-store" })
+      const res = await fetch(`/api/admin/overview?key=${encodeURIComponent(key)}${fresh ? "&fresh=1" : ""}`, {
+        cache: "no-store",
+      })
       if (res.status === 401) return setState("unauth")
       if (!res.ok) return setState("error")
       setData((await res.json()) as Overview)
@@ -320,7 +324,7 @@ export default function AdminDashboard() {
         </div>
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => void load(true)}
           className="rounded-full border border-[#003219]/20 px-4 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B]"
         >
           Actualiser

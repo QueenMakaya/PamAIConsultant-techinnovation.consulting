@@ -39,7 +39,7 @@ that registry, not a code change.
 4. If the Airtable token is limited to specific bases, add the new base to it
    (airtable.com/create/tokens).
 5. Send the **Lien portail** column to the approver. It appears on the
-   dashboard within a minute.
+   dashboard within a few minutes, or right away with **Actualiser**.
 
 A base that doesn't use the standard field names still works: fill in
 **Correspondance champs** with one line per field, for example

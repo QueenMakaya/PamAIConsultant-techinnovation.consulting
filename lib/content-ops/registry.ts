@@ -117,10 +117,12 @@ const LEGACY: Business[] = [
 let cache: { at: number; businesses: Business[]; source: "registry" | "legacy" } | null = null
 const TTL_MS = 60_000
 
-export async function loadBusinesses(): Promise<{ businesses: Business[]; source: "registry" | "legacy" }> {
-  if (cache && Date.now() - cache.at < TTL_MS) return cache
+export async function loadBusinesses(
+  opts: { fresh?: boolean } = {},
+): Promise<{ businesses: Business[]; source: "registry" | "legacy" }> {
+  if (!opts.fresh && cache && Date.now() - cache.at < TTL_MS) return cache
   try {
-    const rows = await listRecords(REGISTRY_BASE, REGISTRY_TABLE)
+    const rows = await listRecords(REGISTRY_BASE, REGISTRY_TABLE, { fresh: opts.fresh })
     const businesses = rows
       .map((row) => fromRegistryRow(row.fields))
       .filter((b): b is Business => b !== null)

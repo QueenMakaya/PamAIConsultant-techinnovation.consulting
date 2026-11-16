@@ -12,7 +12,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   try {
-    const overview = await buildOverview(siteOrigin(request.nextUrl.origin))
+    // "Actualiser" asks for a straight read from Airtable; a page load takes the
+    // cached copy (see lib/content-ops/airtable.ts).
+    const fresh = request.nextUrl.searchParams.get("fresh") === "1"
+    const overview = await buildOverview(siteOrigin(request.nextUrl.origin), { fresh })
     return NextResponse.json({
       ...overview,
       email: emailConfigured(),

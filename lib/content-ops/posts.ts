@@ -157,8 +157,11 @@ function classify(record: AirtableRecord, business: Business, fields: FieldMap, 
   }
 }
 
-export async function loadCalendar(business: Business): Promise<{ posts: ClassifiedPost[]; fields: FieldMap }> {
-  const records = await listRecords(business.base, business.table, { view: business.view })
+export async function loadCalendar(
+  business: Business,
+  opts: { fresh?: boolean } = {},
+): Promise<{ posts: ClassifiedPost[]; fields: FieldMap }> {
+  const records = await listRecords(business.base, business.table, { view: business.view, fresh: opts.fresh })
   const fields = resolveFields(business, records)
   const today = todayInMontreal()
   return { posts: records.map((r) => classify(r, business, fields, today)), fields }

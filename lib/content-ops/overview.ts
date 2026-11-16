@@ -44,12 +44,12 @@ function ref(business: Business, post: ClassifiedPost): PostRef {
 
 const byDate = (a: PostRef, b: PostRef) => (a.date || "9999").localeCompare(b.date || "9999")
 
-export async function buildOverview(origin: string): Promise<{
+export async function buildOverview(origin: string, opts: { fresh?: boolean } = {}): Promise<{
   today: string
   source: "registry" | "legacy"
   businesses: BusinessOverview[]
 }> {
-  const { businesses, source } = await loadBusinesses()
+  const { businesses, source } = await loadBusinesses(opts)
   const today = todayInMontreal()
   const active = businesses.filter((b) => b.active)
 
@@ -73,7 +73,7 @@ export async function buildOverview(origin: string): Promise<{
         overdue: [],
       }
       try {
-        const { posts } = await loadCalendar(business)
+        const { posts } = await loadCalendar(business, opts)
         const inPortal = posts.filter((p) => p.visibleInPortal)
         return {
           ...base,

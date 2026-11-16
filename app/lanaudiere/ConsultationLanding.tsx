@@ -264,8 +264,18 @@ export default function ConsultationLanding() {
           </ul>
         </div>
         <div className="rounded-2xl bg-background p-6 text-center shadow-sm">
+          <p className="mx-auto mb-3 w-fit rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
+            Tarif de lancement
+          </p>
           <p className="font-display text-5xl font-bold">250 $</p>
           <p className="mt-1 text-sm text-muted-foreground">par mois, taxes en sus</p>
+          <ul className="mt-4 grid gap-1.5 text-left text-sm">
+            <li>
+              <strong>Pour les 5 premières entreprises de Lanaudière.</strong> Le tarif régulier est de 350 $ par mois.
+            </li>
+            <li>Engagement minimum de 3 mois.</li>
+            <li>Premier mois payable à la signature, puis facturation le 1er de chaque mois.</li>
+          </ul>
           <p className="mt-4 text-sm text-muted-foreground">
             On en parle seulement si ça vous intéresse. La consultation reste gratuite dans tous les cas.
           </p>

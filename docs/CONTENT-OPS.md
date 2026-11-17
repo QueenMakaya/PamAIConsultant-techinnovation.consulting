@@ -81,8 +81,9 @@ already schedule them. Leave their Marque Metricool empty.
 | Black Wealth Crypto | 7546811 |
 | Tech Innovation Consulting | 7436274 |
 | AVA Studio Podcast | 8011661 |
+| Folashade | 8160244 |
 
-No Metricool brand yet: Anny's K, ROOMA, Folashade, Ethnika, Miboty, Solfutur.
+No Metricool brand yet: Anny's K, ROOMA, Ethnika, Miboty, Solfutur.
 To add one: connect the brand in Metricool, then put its blogId in the
 registry.
 

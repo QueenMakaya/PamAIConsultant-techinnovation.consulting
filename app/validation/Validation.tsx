@@ -218,6 +218,16 @@ export default function Validation() {
     [token, comments],
   )
 
+  // A file the client just added: show it on the card right away.
+  const replaceVisuals = useCallback((postId: string, visuals: Visual[]) => {
+    setBeats((prev) =>
+      prev.map((beat) => ({
+        ...beat,
+        posts: beat.posts.map((p) => (p.id === postId ? { ...p, visuals } : p)),
+      })),
+    )
+  }, [])
+
   const buildSummary = useCallback(() => {
     const lines: string[] = ["Mes retours sur le calendrier 🌿", ""]
     for (const beat of beats) {
@@ -418,6 +428,8 @@ export default function Validation() {
                   onComment={(value) => setComments((c) => ({ ...c, [post.id]: value }))}
                   onDecision={(decision) => void save(post, decision)}
                   onRetry={() => void save(post, decisions[post.id] ?? APPROVED)}
+                  token={token}
+                  onUploaded={(visuals) => replaceVisuals(post.id, visuals)}
                 />
               ))}
             </div>
@@ -472,6 +484,8 @@ function PostCard({
   onComment,
   onDecision,
   onRetry,
+  token,
+  onUploaded,
 }: {
   post: Post
   decision: string
@@ -480,6 +494,8 @@ function PostCard({
   onComment: (value: string) => void
   onDecision: (decision: string) => void
   onRetry: () => void
+  token: string
+  onUploaded: (visuals: Visual[]) => void
 }) {
   const ch = channelStyle(post.channel)
   const approved = decision === APPROVED
@@ -586,6 +602,9 @@ function PostCard({
           />
         </div>
 
+        {/* Add a file: goes straight into this post's visuals in Airtable */}
+        <UploadButton recordId={post.id} token={token} onUploaded={onUploaded} />
+
         {/* Save state */}
         <div className="mt-2 min-h-[1.25rem] text-sm" aria-live="polite">
           {saveState === "saving" ? (
@@ -607,6 +626,122 @@ function PostCard({
         </div>
       </div>
     </article>
+  )
+}
+
+// ---- Upload ------------------------------------------------------------------
+
+// The server and Airtable accept up to 4 MB per file. Photos above that are
+// resized in the browser first; videos and PDFs above it are refused here with
+// a clear message.
+const MAX_UPLOAD = 4 * 1024 * 1024
+
+async function shrinkImage(file: File): Promise<File> {
+  if (file.size <= MAX_UPLOAD || !file.type.startsWith("image/") || file.type === "image/gif") return file
+  try {
+    const bitmap = await createImageBitmap(file)
+    for (const side of [3000, 2400, 1800]) {
+      const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height))
+      const canvas = document.createElement("canvas")
+      canvas.width = Math.round(bitmap.width * scale)
+      canvas.height = Math.round(bitmap.height * scale)
+      canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.86))
+      if (blob && blob.size <= MAX_UPLOAD) {
+        return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" })
+      }
+    }
+  } catch {
+    // Format the browser can't decode (e.g. HEIC on Chrome): fall through.
+  }
+  return file
+}
+
+function UploadButton({
+  recordId,
+  token,
+  onUploaded,
+}: {
+  recordId: string
+  token: string
+  onUploaded: (visuals: Visual[]) => void
+}) {
+  const [state, setState] = useState<"idle" | "uploading" | "done" | "error">("idle")
+  const [message, setMessage] = useState("")
+  const inputId = `upload-${recordId}`
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setState("uploading")
+    let count = 0
+    for (const original of Array.from(files)) {
+      setMessage(files.length > 1 ? `Envoi ${count + 1} sur ${files.length}…` : "Envoi du fichier…")
+      const file = await shrinkImage(original)
+      if (file.size > MAX_UPLOAD) {
+        setState("error")
+        setMessage(`« ${original.name} » dépasse 4 Mo. Envoie-le-moi sur WhatsApp.`)
+        return
+      }
+      const form = new FormData()
+      form.append("token", token)
+      form.append("recordId", recordId)
+      form.append("file", file)
+      try {
+        const res = await fetch("/api/upload", { method: "POST", body: form })
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; visuals?: Visual[]; error?: string }
+        if (!res.ok || !data.ok) {
+          setState("error")
+          setMessage(
+            data.error === "unsupported_type"
+              ? "Format non accepté : photo, vidéo ou PDF seulement."
+              : `« ${original.name} » n’a pas pu être ajouté. Réessaie.`,
+          )
+          return
+        }
+        if (data.visuals) onUploaded(data.visuals)
+        count += 1
+      } catch {
+        setState("error")
+        setMessage("Connexion perdue. Réessaie.")
+        return
+      }
+    }
+    setState("done")
+    setMessage(count > 1 ? `✓ ${count} fichiers ajoutés` : "✓ Fichier ajouté")
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3">
+      <label
+        htmlFor={inputId}
+        className={[
+          "inline-flex cursor-pointer items-center gap-2 rounded-full border border-dashed border-[#003219]/35 px-4 py-2 text-sm font-medium text-[#003219] transition-colors hover:bg-[#003219]/5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#B5822B]",
+          state === "uploading" ? "pointer-events-none opacity-60" : "",
+        ].join(" ")}
+      >
+        <span aria-hidden>📎</span> Ajouter un fichier
+        <input
+          id={inputId}
+          type="file"
+          multiple
+          accept="image/*,video/*,application/pdf"
+          className="sr-only"
+          disabled={state === "uploading"}
+          onChange={(e) => {
+            void handleFiles(e.target.files)
+            e.target.value = ""
+          }}
+        />
+      </label>
+      {message ? (
+        <span
+          aria-live="polite"
+          className={state === "error" ? "text-sm text-[#8a2b1f]" : "text-sm text-[#003219]/70"}
+        >
+          {message}
+        </span>
+      ) : null}
+    </div>
   )
 }
 

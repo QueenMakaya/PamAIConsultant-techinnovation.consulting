@@ -82,7 +82,7 @@ type Attachment = {
   thumbnails?: { small?: { url: string }; large?: { url: string }; full?: { url: string } }
 }
 
-function mapVisuals(value: unknown): Visual[] {
+export function mapVisuals(value: unknown): Visual[] {
   if (!Array.isArray(value)) return []
 
   const attachments = (value as Attachment[])

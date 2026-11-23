@@ -89,3 +89,34 @@ export function asString(value: unknown): string {
   }
   return String(value)
 }
+
+// Upload one file straight into an attachment field (appended to what the cell
+// already holds). Airtable's upload endpoint takes the bytes as base64, up to
+// 5 MB per file. Returns the cell's full attachment list after the upload.
+export async function uploadAttachment(
+  base: string,
+  recordId: string,
+  field: string,
+  file: { bytes: ArrayBuffer; contentType: string; filename: string },
+): Promise<unknown[]> {
+  const res = await fetch(
+    `https://content.airtable.com/v0/${base}/${encodeURIComponent(recordId)}/${encodeURIComponent(field)}/uploadAttachment`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        contentType: file.contentType,
+        filename: file.filename,
+        file: Buffer.from(file.bytes).toString("base64"),
+      }),
+    },
+  )
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "")
+    throw new AirtableError(res.status, detail.slice(0, 500))
+  }
+  const data = (await res.json()) as { fields?: Record<string, unknown> }
+  const cell = Object.values(data.fields ?? {}).find(Array.isArray)
+  return (cell as unknown[] | undefined) ?? []
+}

@@ -39,6 +39,8 @@ export type Post = {
   visuals: Visual[]
   approval: string
   comment: string
+  // Production brief, sent only when the caption is still empty.
+  brief: string
 }
 
 // A post plus the normalised workflow state used by the admin and automations.
@@ -148,6 +150,7 @@ function classify(record: AirtableRecord, business: Business, fields: FieldMap, 
     visuals: mapVisuals(f[fields.visuals]),
     approval: canonicalApproval(rawApproval),
     comment: asString(f[fields.comment]),
+    brief: asString(f[fields.caption]).trim() ? "" : asString(f[fields.brief]),
     stage,
     decision,
     overdue,

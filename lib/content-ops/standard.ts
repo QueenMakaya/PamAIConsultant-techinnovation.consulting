@@ -15,6 +15,7 @@ export type FieldKey =
   | "status"
   | "approval"
   | "comment"
+  | "brief"
 
 export const FIELD_ALIASES: Record<FieldKey, string[]> = {
   title: ["Titre", "Titre / Sujet", "Title / Topic", "Title", "Post Title", "Sujet"],
@@ -28,6 +29,8 @@ export const FIELD_ALIASES: Record<FieldKey, string[]> = {
   status: ["Statut production", "Statut (PUBLICATION)", "Status (Publication)", "Statut", "Status", "Post Status"],
   approval: ["Validation client"],
   comment: ["Commentaires client"],
+  // Internal production brief, shown to the client only while the caption is not written yet.
+  brief: ["Contenu", "Brief", "Description"],
 }
 
 // ---- Option normalisation ----------------------------------------------------

@@ -35,7 +35,7 @@ export type Business = {
 
 const FIELD_KEYS: FieldKey[] = [
   "title", "date", "channel", "format", "caption", "hashtags",
-  "link", "visuals", "status", "approval", "comment",
+  "link", "visuals", "status", "approval", "comment", "brief",
 ]
 
 // "approval = Validation Marye" lines → { approval: "Validation Marye" }

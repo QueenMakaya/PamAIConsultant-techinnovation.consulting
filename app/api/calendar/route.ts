@@ -16,8 +16,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { posts } = await loadCalendar(business)
-    const beats = groupIntoBeats(posts.filter((p) => p.visibleInPortal).map(toPortalPost))
-    return NextResponse.json({ business: business.name, beats })
+    const visible = posts.filter((p) => p.visibleInPortal).map(toPortalPost)
+    // Flat list sorted by date (the portal groups it by month); beats kept for
+    // older clients of this endpoint.
+    const sorted = [...visible].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"))
+    return NextResponse.json({ business: business.name, posts: sorted, beats: groupIntoBeats(visible) })
   } catch (error) {
     if (error instanceof AirtableError) {
       return NextResponse.json(

@@ -28,6 +28,7 @@ type Post = {
   visuals: Visual[]
   approval: string
   comment: string
+  brief?: string
 }
 
 type Beat = {
@@ -127,18 +128,81 @@ function BotanicalStem({ progress }: { progress: number }) {
 
 // ---- Main component ----------------------------------------------------------
 
+// ---- Month helpers (same filter model as the Studio IAM Beauté portal) ------
+
+const FR_MONTHS = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+]
+
+function monthKey(date: string): string {
+  return /^\d{4}-\d{2}/.test(date) ? date.slice(0, 7) : ""
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split("-")
+  const name = FR_MONTHS[Number(month) - 1]
+  return name ? `${name} ${year}` : key
+}
+
+function filterLabel(filter: string): string {
+  if (filter === "carryover") return "À reprogrammer"
+  if (filter === "all") return "Tous"
+  return monthLabel(filter)
+}
+
+// Montréal's current month, "YYYY-MM" (keys compare lexically = by date).
+function currentMonthKey(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto" }).format(new Date()).slice(0, 7)
+}
+
+// Lands on the current month when it has posts, else the next month that
+// does, else the carry-over group, else everything.
+function defaultFilter(posts: Post[]): string {
+  const cur = currentMonthKey()
+  const keys = new Set(posts.map((p) => monthKey(p.date)).filter(Boolean))
+  if (keys.has(cur)) return cur
+  const future = [...keys].filter((k) => k > cur).sort()
+  if (future.length > 0) return future[0]
+  if ([...keys].some((k) => k < cur)) return "carryover"
+  return "all"
+}
+
+function groupByMonth(posts: Post[]): Array<[string, Post[]]> {
+  const map = new Map<string, Post[]>()
+  for (const p of posts) {
+    const k = monthKey(p.date)
+    map.set(k, [...(map.get(k) ?? []), p])
+  }
+  return [...map.entries()].sort(([a], [b]) => (a || "9999").localeCompare(b || "9999"))
+}
+
+// "NOV-10 - Retour en images" → "Retour en images"
+function cleanTitle(title: string): string {
+  return title.replace(/^\s*(?:[A-Z]{2,5}-)?\d+\s*[—–·:-]\s*/, "").trim() || title
+}
+
+function statusBadge(decision: string): { label: string; cls: string } {
+  if (decision === APPROVED) return { label: "Approuvé", cls: "bg-[#003219]/10 text-[#003219]" }
+  if (decision === ADJUST) return { label: "À ajuster", cls: "bg-[#B5822B]/15 text-[#8a6320]" }
+  return { label: "À valider", cls: "bg-[#003219]/5 text-[#003219]/60" }
+}
+
 export default function Validation() {
   const searchParams = useSearchParams()
   const token = searchParams.get("token") ?? ""
 
   const [status, setStatus] = useState<"loading" | "unauth" | "error" | "ready">("loading")
-  const [beats, setBeats] = useState<Beat[]>([])
+  const [business, setBusiness] = useState("")
+  const [posts, setPosts] = useState<Post[]>([])
 
   // Per-record UI state, keyed by record id.
   const [decisions, setDecisions] = useState<Record<string, string>>({})
   const [comments, setComments] = useState<Record<string, string>>({})
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({})
   const [copied, setCopied] = useState(false)
+  // Month filter: a "YYYY-MM" key, or the pseudo-keys "all" / "carryover".
+  const [filter, setFilter] = useState<string>("all")
 
   const loadCalendar = useCallback(async () => {
     setStatus("loading")
@@ -154,20 +218,20 @@ export default function Validation() {
         setStatus("error")
         return
       }
-      const data = (await res.json()) as { beats: Beat[] }
-      const nextBeats = data.beats ?? []
-      setBeats(nextBeats)
+      const data = (await res.json()) as { business?: string; posts?: Post[]; beats?: Beat[] }
+      const nextPosts = data.posts ?? (data.beats ?? []).flatMap((b) => b.posts)
+      setPosts(nextPosts)
+      setBusiness(data.business ?? "")
+      setFilter(defaultFilter(nextPosts))
 
       // Seed decisions / comments from Airtable's current values.
       const seedDecisions: Record<string, string> = {}
       const seedComments: Record<string, string> = {}
-      for (const beat of nextBeats) {
-        for (const post of beat.posts) {
-          if (post.approval === APPROVED || post.approval === ADJUST) {
-            seedDecisions[post.id] = post.approval
-          }
-          seedComments[post.id] = post.comment ?? ""
+      for (const post of nextPosts) {
+        if (post.approval === APPROVED || post.approval === ADJUST) {
+          seedDecisions[post.id] = post.approval
         }
+        seedComments[post.id] = post.comment ?? ""
       }
       setDecisions(seedDecisions)
       setComments(seedComments)
@@ -181,11 +245,38 @@ export default function Validation() {
     void loadCalendar()
   }, [loadCalendar])
 
-  const allPosts = useMemo(() => beats.flatMap((b) => b.posts), [beats])
-  const total = allPosts.length
+  const CURRENT = currentMonthKey()
+
+  const carryoverCount = useMemo(
+    () => posts.filter((p) => { const k = monthKey(p.date); return !!k && k < CURRENT }).length,
+    [posts, CURRENT],
+  )
+
+  // Chips: this month and each upcoming month, then "À reprogrammer" for
+  // earlier unpublished posts, then "Tous".
+  const chips = useMemo(() => {
+    const keys = [...new Set(posts.map((p) => monthKey(p.date)).filter((k) => k && k >= CURRENT))].sort()
+    const list: Array<{ key: string; label: string; count: number; carry?: boolean }> = keys.map((k) => ({
+      key: k,
+      label: monthLabel(k),
+      count: posts.filter((p) => monthKey(p.date) === k).length,
+    }))
+    if (carryoverCount > 0) list.push({ key: "carryover", label: "À reprogrammer", count: carryoverCount, carry: true })
+    list.push({ key: "all", label: "Tous", count: posts.length })
+    return list
+  }, [posts, carryoverCount, CURRENT])
+
+  const visible = useMemo(() => {
+    if (filter === "all") return posts
+    if (filter === "carryover") return posts.filter((p) => { const k = monthKey(p.date); return !!k && k < CURRENT })
+    return posts.filter((p) => monthKey(p.date) === filter)
+  }, [posts, filter, CURRENT])
+
+  // The counter and progress bar follow the posts in view.
+  const total = visible.length
   const decided = useMemo(
-    () => allPosts.filter((p) => decisions[p.id] === APPROVED || decisions[p.id] === ADJUST).length,
-    [allPosts, decisions],
+    () => visible.filter((p) => decisions[p.id] === APPROVED || decisions[p.id] === ADJUST).length,
+    [visible, decisions],
   )
   const progress = total > 0 ? decided / total : 0
   const pct = Math.round(progress * 100)
@@ -220,33 +311,29 @@ export default function Validation() {
 
   // A file the client just added: show it on the card right away.
   const replaceVisuals = useCallback((postId: string, visuals: Visual[]) => {
-    setBeats((prev) =>
-      prev.map((beat) => ({
-        ...beat,
-        posts: beat.posts.map((p) => (p.id === postId ? { ...p, visuals } : p)),
-      })),
-    )
+    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, visuals } : p)))
   }, [])
 
+  // Recap of every decided post (all months), grouped by month, with comments.
   const buildSummary = useCallback(() => {
-    const lines: string[] = ["Mes retours sur le calendrier 🌿", ""]
-    for (const beat of beats) {
-      const reviewed = beat.posts.filter(
-        (p) => decisions[p.id] === APPROVED || decisions[p.id] === ADJUST,
-      )
+    const lines: string[] = [`Mes retours sur le calendrier${business ? ` ${business}` : ""} 🌿`, ""]
+    for (const [key, items] of groupByMonth(posts)) {
+      const reviewed = items.filter((p) => decisions[p.id] === APPROVED || decisions[p.id] === ADJUST)
       if (reviewed.length === 0) continue
-      lines.push(beat.title)
+      lines.push(key ? monthLabel(key) : "Sans date")
       for (const post of reviewed) {
         const mark = decisions[post.id] === APPROVED ? "✅ Approuvé" : "✏️ À ajuster"
-        const suffix = post.channel ? ` (${post.channel})` : ""
-        lines.push(`• ${mark}${suffix}`)
+        const when = post.date ? ` (${formatDate(post.date)})` : ""
+        lines.push(`• ${mark} : ${cleanTitle(post.title) || post.channel || "Post"}${when}`)
         const note = comments[post.id]?.trim()
-        if (note && decisions[post.id] === ADJUST) lines.push(`   ↳ ${note}`)
+        if (note) lines.push(`   ↳ ${note}`)
       }
       lines.push("")
     }
     return lines.join("\n").trim()
-  }, [beats, decisions, comments])
+  }, [posts, decisions, comments, business])
+
+  const hasFeedback = buildSummary().includes("•")
 
   const handleCopy = useCallback(async () => {
     const text = buildSummary()
@@ -320,7 +407,7 @@ export default function Validation() {
     )
   }
 
-  if (total === 0) {
+  if (posts.length === 0) {
     return (
       <Centered>
         <div className="max-w-md text-center">
@@ -340,7 +427,23 @@ export default function Validation() {
     )
   }
 
-  const done = decided === total
+  const done = total > 0 && decided === total
+  const multiMonth = (filter === "all" || filter === "carryover") && groupByMonth(visible).length > 1
+
+  const renderCard = (post: Post) => (
+    <PostCard
+      key={post.id}
+      post={post}
+      decision={decisions[post.id] ?? ""}
+      comment={comments[post.id] ?? ""}
+      saveState={saveStates[post.id] ?? "idle"}
+      onComment={(value) => setComments((c) => ({ ...c, [post.id]: value }))}
+      onDecision={(decision) => void save(post, decision)}
+      onRetry={() => void save(post, decisions[post.id] ?? APPROVED)}
+      token={token}
+      onUploaded={(visuals) => replaceVisuals(post.id, visuals)}
+    />
+  )
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-24 sm:px-6">
@@ -353,15 +456,16 @@ export default function Validation() {
               className="truncate text-sm font-semibold uppercase tracking-wide text-[#B5822B]"
               style={{ letterSpacing: "0.08em" }}
             >
-              Validation du calendrier
+              Validation du calendrier{business ? ` · ${business}` : ""}
             </p>
             <p className="text-sm text-[#003219]/70">
               {done ? (
-                <span className="font-medium text-[#003219]">Tout est passé en revue — merci 🌿</span>
+                <span className="font-medium text-[#003219]">Tout est passé en revue dans cette vue, merci 🌿</span>
               ) : (
                 <>
                   <span className="font-semibold text-[#003219]">{decided}</span> sur {total} posts
                   validés
+                  {filter !== "all" ? <span className="text-[#003219]/50"> · {filterLabel(filter)}</span> : null}
                 </>
               )}
             </p>
@@ -397,45 +501,83 @@ export default function Validation() {
         </p>
       </div>
 
-      {/* Beats */}
-      <div className="space-y-10">
-        {beats.map((beat) => (
-          <section key={beat.key} aria-labelledby={`beat-${beat.key}`}>
-            <div className="mb-3 flex items-baseline gap-2">
-              <span
-                className="text-sm font-bold text-[#B5822B]"
-                style={{ fontFamily: "var(--font-fraunces), serif" }}
+      {/* Month filter */}
+      {chips.length > 1 && (
+        <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Filtrer par mois">
+          {chips.map((chip) => {
+            const selected = filter === chip.key
+            return (
+              <button
+                key={chip.key}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setFilter(chip.key)}
+                className={[
+                  "rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B]",
+                  selected
+                    ? chip.carry
+                      ? "border-[#8a2b1f] bg-[#8a2b1f] text-[#FAF6EE]"
+                      : "border-[#003219] bg-[#003219] text-[#FAF6EE]"
+                    : chip.carry
+                      ? "border-[#8a2b1f]/40 text-[#8a2b1f] hover:bg-[#8a2b1f]/5"
+                      : "border-[#003219]/20 text-[#003219]/75 hover:bg-[#003219]/5",
+                ].join(" ")}
               >
-                {beat.key === "—" ? "•" : beat.key}
-              </span>
-              <h2
-                id={`beat-${beat.key}`}
-                className="text-xl text-[#003219]"
-                style={{ fontFamily: "var(--font-fraunces), serif" }}
-              >
-                {beat.title.replace(/^\s*0*\d+\s*[—–·-]\s*/, "") || beat.title}
-              </h2>
-            </div>
+                {chip.label}
+                <span className="ml-1.5 opacity-70">{chip.count}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
-            <div className="space-y-4">
-              {beat.posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  decision={decisions[post.id] ?? ""}
-                  comment={comments[post.id] ?? ""}
-                  saveState={saveStates[post.id] ?? "idle"}
-                  onComment={(value) => setComments((c) => ({ ...c, [post.id]: value }))}
-                  onDecision={(decision) => void save(post, decision)}
-                  onRetry={() => void save(post, decisions[post.id] ?? APPROVED)}
-                  token={token}
-                  onUploaded={(visuals) => replaceVisuals(post.id, visuals)}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+      {/* Nudge toward carry-over posts when viewing a single month */}
+      {carryoverCount > 0 && filter !== "carryover" && filter !== "all" && (
+        <button
+          type="button"
+          onClick={() => setFilter("carryover")}
+          className="mb-6 flex w-full items-center justify-between gap-3 rounded-xl border border-[#8a2b1f]/30 bg-[#8a2b1f]/5 px-4 py-3 text-left text-sm text-[#8a2b1f]"
+        >
+          <span>
+            <strong>{carryoverCount}</strong> post{carryoverCount > 1 ? "s" : ""} d’un mois précédent{" "}
+            {carryoverCount > 1 ? "ne sont" : "n’est"} pas encore publié{carryoverCount > 1 ? "s" : ""} : à
+            reprogrammer.
+          </span>
+          <span className="whitespace-nowrap font-semibold">Voir →</span>
+        </button>
+      )}
+
+      {filter === "carryover" && visible.length > 0 && (
+        <p className="mb-6 text-sm text-[#003219]/60">
+          Ces posts étaient prévus pour un mois précédent et n’ont pas été publiés : on les reprogramme.
+        </p>
+      )}
+
+      {/* Posts */}
+      {visible.length === 0 ? (
+        <p className="rounded-2xl border border-[#003219]/10 bg-white/60 p-6 text-center text-[#003219]/70">
+          Aucun post dans cette vue. Essaie « Tous ».
+        </p>
+      ) : multiMonth ? (
+        <div className="space-y-10">
+          {groupByMonth(visible).map(([key, items]) => (
+            <section key={key || "sans-date"} aria-labelledby={`month-${key || "none"}`}>
+              <h2
+                id={`month-${key || "none"}`}
+                className={`mb-3 text-xl ${key && key < CURRENT ? "text-[#8a2b1f]" : "text-[#003219]"}`}
+                style={{ fontFamily: "var(--font-fraunces), serif" }}
+              >
+                {key ? monthLabel(key) : "Sans date"}
+                {key && key < CURRENT ? " · non publié" : ""}
+              </h2>
+              <div className="space-y-4">{items.map(renderCard)}</div>
+            </section>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">{visible.map(renderCard)}</div>
+      )}
 
       {/* Summary / share */}
       <div className="mt-12 rounded-2xl border border-[#003219]/10 bg-white/60 p-5">
@@ -446,21 +588,25 @@ export default function Validation() {
           Partager mes retours
         </h2>
         <p className="mt-1 text-sm text-[#003219]/70">
-          Un récap de tes décisions, prêt à m’envoyer.
+          {hasFeedback
+            ? "Un récap de tes décisions et commentaires, prêt à m’envoyer."
+            : "Approuve ou commente un post plus haut, ton récap apparaîtra ici."}
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
+            disabled={!hasFeedback}
             onClick={() => void handleCopy()}
-            className="rounded-full border-2 border-[#003219] px-5 py-2.5 text-sm font-medium text-[#003219] transition-colors hover:bg-[#003219] hover:text-[#FAF6EE] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B]"
+            className="rounded-full border-2 border-[#003219] px-5 py-2.5 text-sm font-medium text-[#003219] transition-colors hover:bg-[#003219] hover:text-[#FAF6EE] disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B]"
           >
             {copied ? "Copié ✓" : "Copier mes retours"}
           </button>
           <a
-            href={whatsappHref}
+            href={hasFeedback ? whatsappHref : undefined}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full bg-[#003219] px-5 py-2.5 text-sm font-medium text-[#FAF6EE] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B]"
+            aria-disabled={!hasFeedback}
+            className={`rounded-full bg-[#003219] px-5 py-2.5 text-sm font-medium text-[#FAF6EE] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B5822B] ${hasFeedback ? "" : "pointer-events-none opacity-40"}`}
           >
             Envoyer sur WhatsApp
           </a>
@@ -531,11 +677,36 @@ function PostCard({
           </span>
         </div>
 
+        <div className="mb-2 flex items-start justify-between gap-3">
+          {post.title ? (
+            <h3
+              className="text-lg leading-snug text-[#003219]"
+              style={{ fontFamily: "var(--font-fraunces), serif" }}
+            >
+              {cleanTitle(post.title)}
+            </h3>
+          ) : <span />}
+          <span
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${statusBadge(decision).cls}`}
+          >
+            {statusBadge(decision).label}
+          </span>
+        </div>
+
         {post.caption ? (
           <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-[#003219]">
             {post.caption}
           </p>
-        ) : null}
+        ) : post.brief ? (
+          <div className="rounded-xl border border-dashed border-[#B5822B]/50 bg-[#B5822B]/5 px-3 py-2.5">
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#8a6320]">
+              Brief · légende en préparation
+            </p>
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#003219]/80">{post.brief}</p>
+          </div>
+        ) : (
+          <p className="text-sm italic text-[#003219]/50">Légende en préparation.</p>
+        )}
 
         {post.hashtags ? (
           <p className="mt-2 text-sm text-[#B5822B]">{post.hashtags}</p>

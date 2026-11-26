@@ -98,7 +98,7 @@ const LEGACY: Business[] = [
     process.env.AIRTABLE_TABLE || "tbldd33ltZe9ran3d", "VALIDATION_TOKEN",
     { approval: "Approbation Anny", comment: "Commentaire d'Anny (approbation)" }),
   legacy("chafric", "CHAFRIC", "appNTAdE5R06eHkFF", "tbldnauStmzlJRb0l", "CHAFRIC_VALIDATION_TOKEN",
-    { comment: "Commentaires CHAFRIC" }, { hideOverdue: true }),
+    { comment: "Commentaires CHAFRIC" }),
   legacy("okpneus", "OK Pneus Terrebonne", "appzNmBQeCXPUVnff", "tblobreF74oLW96Es", "OKPNEUS_VALIDATION_TOKEN",
     { approval: "Approbation Sam", comment: "Commentaire de Sam" },
     { labels: { approved: "✅ Approuvé", adjust: "✏️ À ajuster" } }),

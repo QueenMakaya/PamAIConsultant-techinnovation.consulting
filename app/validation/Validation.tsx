@@ -57,7 +57,9 @@ function channelStyle(channel: string): { bg: string; fg: string } {
 }
 
 function formatDate(value: string): string {
-  const t = Date.parse(value)
+  // A bare "YYYY-MM-DD" parses as UTC midnight, which shows as the previous
+  // day in Montréal: read it at noon instead.
+  const t = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value)
   if (Number.isNaN(t)) return value || ""
   try {
     return new Intl.DateTimeFormat("fr-FR", {

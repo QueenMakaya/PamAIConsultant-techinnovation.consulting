@@ -42,6 +42,19 @@ brand files.
 ## Standing conversion objective
 - Sales (online boutique), with education posts for saves
 
+## Publishing rules (set by Pam, 27 Nov 2026)
+- Instagram: Stories and Reels only. No feed posts, no carousels on the IG grid.
+- Every Instagram Story also goes out as a Facebook Post and a Facebook Story.
+- And vice versa: anything planned as a Facebook post also goes out as an
+  Instagram Story (and Facebook Story).
+- Reels: Instagram Reel + Facebook Reel.
+- Formats: design everything 1080 × 1920 (9:16) first. A 4:5 carousel made
+  for Facebook needs a 9:16 version before it can go to Stories.
+- Stories carry no caption: put the offer, price and "lien en bio" on the image.
+  The Facebook post carries the caption.
+- Photos from the Panorama shoot (Sept. 2026): always tag the model
+  @clemente_paris.
+
 ## Visual do/don't
 - Motif: concentric wax circles, tonal terracotta only
 - Photos: real pieces, worn (waiting on Solange's photos)
